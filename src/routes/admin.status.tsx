@@ -7,6 +7,10 @@ export const Route = createFileRoute("/admin/status")({
     meta: [
       { title: "System Status — Synthetic UX Lab" },
       { name: "description", content: "Service health, queue status, and uptime." },
+      { property: "og:title", content: "System Status — Synthetic UX Lab" },
+      { property: "og:description", content: "Service health, queue status, and uptime." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: SystemStatusPage,

@@ -7,6 +7,10 @@ export const Route = createFileRoute("/admin/general")({
     meta: [
       { title: "General Settings — Synthetic UX Lab" },
       { name: "description", content: "Organization and workspace configuration." },
+      { property: "og:title", content: "General Settings — Synthetic UX Lab" },
+      { property: "og:description", content: "Organization and workspace configuration." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: GeneralSettingsPage,

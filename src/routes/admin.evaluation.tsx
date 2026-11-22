@@ -10,6 +10,13 @@ export const Route = createFileRoute("/admin/evaluation")({
         name: "description",
         content: "Configure metrics, success criteria, and scoring weights.",
       },
+      { property: "og:title", content: "Evaluation — Synthetic UX Lab" },
+      {
+        property: "og:description",
+        content: "Configure metrics, success criteria, and scoring weights.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: EvaluationPage,

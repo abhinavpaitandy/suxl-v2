@@ -5,7 +5,14 @@ import { ExperimentStepper } from "@/components/experiment-stepper";
 
 export const Route = createFileRoute("/experiments/new")({
   head: () => ({
-    meta: [{ title: "New Experiment — Synthetic UX Lab" }],
+    meta: [
+      { title: "New Experiment — Synthetic UX Lab" },
+      { name: "description", content: "Create a synthetic UX pre-testing experiment." },
+      { property: "og:title", content: "New Experiment — Synthetic UX Lab" },
+      { property: "og:description", content: "Create a synthetic UX pre-testing experiment." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
   }),
   component: WizardLayout,
 });

@@ -10,6 +10,13 @@ export const Route = createFileRoute("/admin/ai")({
         name: "description",
         content: "Model configuration, simulation parameters, and provider settings.",
       },
+      { property: "og:title", content: "AI & Simulation — Synthetic UX Lab" },
+      {
+        property: "og:description",
+        content: "Model configuration, simulation parameters, and provider settings.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: AISimulationPage,

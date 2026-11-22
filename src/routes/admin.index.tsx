@@ -7,6 +7,10 @@ export const Route = createFileRoute("/admin/")({
     meta: [
       { title: "Admin Overview — Synthetic UX Lab" },
       { name: "description", content: "System overview and recent activity." },
+      { property: "og:title", content: "Admin Overview — Synthetic UX Lab" },
+      { property: "og:description", content: "System overview and recent activity." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: AdminOverviewPage,

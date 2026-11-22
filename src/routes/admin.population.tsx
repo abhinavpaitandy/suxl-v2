@@ -10,6 +10,13 @@ export const Route = createFileRoute("/admin/population")({
         name: "description",
         content: "Manage persona profiles and behavioural segments.",
       },
+      { property: "og:title", content: "Synthetic Population — Synthetic UX Lab" },
+      {
+        property: "og:description",
+        content: "Manage persona profiles and behavioural segments.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: SyntheticPopulationPage,

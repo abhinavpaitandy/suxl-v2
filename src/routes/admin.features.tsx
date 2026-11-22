@@ -7,6 +7,10 @@ export const Route = createFileRoute("/admin/features")({
     meta: [
       { title: "Feature Flags — Synthetic UX Lab" },
       { name: "description", content: "Toggle features and manage rollouts." },
+      { property: "og:title", content: "Feature Flags — Synthetic UX Lab" },
+      { property: "og:description", content: "Toggle features and manage rollouts." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: FeatureFlagsPage,
