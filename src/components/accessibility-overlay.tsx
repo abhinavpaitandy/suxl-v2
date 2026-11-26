@@ -6,7 +6,7 @@ import { Check, Copy, X } from "lucide-react";
 
 // Keep provider requests sequential to avoid launching one request per variant simultaneously.
 let queue: Promise<unknown> = Promise.resolve();
-async function analyse(screenshotUrl: string, fresh: boolean): Promise<AccessibilityFinding[]> {
+async function analyse(screenshotUrl: string, fresh: boolean, cache: boolean): Promise<AccessibilityFinding[]> {
   const response = await fetch(screenshotUrl);
   if (!response.ok) throw new Error("Could not read the screenshot.");
   const hash = await crypto.subtle.digest("SHA-256", await response.arrayBuffer());
@@ -17,17 +17,17 @@ async function analyse(screenshotUrl: string, fresh: boolean): Promise<Accessibi
   if (!context.ok) throw new Error("Unable to identify the configured AI provider.");
   const provider = await context.json();
   const key = `suxl-a11y-v1-${provider.provider}-${provider.model}-${Array.from(new Uint8Array(hash), (b) => b.toString(16).padStart(2, "0")).join("")}`;
-  try { const cached = !fresh && accessibilityFindingsSchema.safeParse(JSON.parse(sessionStorage.getItem(key) || "null")); if (cached && cached.success) return cached.data; } catch { /* Cache is optional. */ }
+  try { const cached = cache && !fresh && accessibilityFindingsSchema.safeParse(JSON.parse(sessionStorage.getItem(key) || "null")); if (cached && cached.success) return cached.data; } catch { /* Cache is optional. */ }
   const tiles = await imageTiles(screenshotUrl);
   const result = await fetch("/api/accessibility-analysis", { method: "POST", headers, body: JSON.stringify({ tiles }), signal: AbortSignal.timeout(180_000) });
   const body = await result.json().catch(() => ({}));
   if (!result.ok) throw new Error(typeof body.error === "string" ? body.error : "Accessibility analysis failed.");
   const findings = accessibilityFindingsSchema.parse(body.findings);
-  try { sessionStorage.setItem(key, JSON.stringify(findings)); } catch { /* Cache is optional. */ }
+  try { if (cache) sessionStorage.setItem(key, JSON.stringify(findings)); } catch { /* Cache is optional. */ }
   return findings;
 }
 
-export function AccessibilityOverlay({ screenshotUrl, variantName, enabled, refreshVersion = 0 }: { screenshotUrl: string; variantName: string; enabled: boolean; refreshVersion?: number }) {
+export function AccessibilityOverlay({ screenshotUrl, variantName, enabled, refreshVersion = 0, cache = true, onFindings }: { screenshotUrl: string; variantName: string; enabled: boolean; refreshVersion?: number; cache?: boolean; onFindings?: (findings: AccessibilityFinding[] | null) => void }) {
   const [findings, setFindings] = useState<AccessibilityFinding[] | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -39,7 +39,7 @@ export function AccessibilityOverlay({ screenshotUrl, variantName, enabled, refr
     if (refreshSeen.current !== refreshVersion) {
       refreshSeen.current = refreshVersion;
       forceFresh.current = true;
-      setFindings(null); setError("");
+      setFindings(null); setError(""); onFindings?.(null);
       setRetry((value) => value + 1);
     }
   }, [refreshVersion]);
@@ -47,11 +47,11 @@ export function AccessibilityOverlay({ screenshotUrl, variantName, enabled, refr
     if (!enabled || findings || error) return;
     let active = true;
     setLoading(true);
-    const job = queue.catch(() => undefined).then(() => { if (!active) throw new Error("Analysis cancelled."); return analyse(screenshotUrl, forceFresh.current); });
+    const job = queue.catch(() => undefined).then(() => { if (!active) throw new Error("Analysis cancelled."); return analyse(screenshotUrl, forceFresh.current, cache); });
     queue = job.catch(() => undefined);
-    job.then((items) => { if (active) { forceFresh.current = false; setFindings(items); } }).catch((err) => { if (active) setError(err instanceof Error ? err.message : "Accessibility analysis failed."); }).finally(() => { if (active) setLoading(false); });
+    job.then((items) => { if (active) { forceFresh.current = false; setFindings(items); onFindings?.(items); } }).catch((err) => { if (active) setError(err instanceof Error ? err.message : "Accessibility analysis failed."); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [enabled, screenshotUrl, findings, error, retry]);
+  }, [enabled, screenshotUrl, findings, error, retry, cache]);
   if (!enabled) return null;
   return <>
     {findings?.map((finding, index) => <AccessibilityMarker key={`${finding.x}-${finding.y}-${index}`} finding={finding} index={index} variantName={variantName} />)}

@@ -4,6 +4,7 @@ import { AppShell, PageBody, PageHeader } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { useDraft } from "@/lib/draft-store";
 import { getExperiment } from "@/lib/mock-data";
+import { isCompletedDemo } from "@/lib/saved-example";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -19,6 +20,7 @@ function ExperimentsPage() {
   const example = getExperiment("exp-1042");
   const { draft } = useDraft();
   const hasResults = Boolean(draft.pilotRuns?.length);
+  const isDemo = isCompletedDemo(draft);
   return (
     <AppShell>
       <PageHeader
@@ -34,6 +36,10 @@ function ExperimentsPage() {
         }
       />
       <PageBody>
+        <section className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-card p-5">
+          <div><h2 className="font-semibold">Run a trial</h2><p className="mt-1 text-sm text-muted-foreground">Try a small screenshot pilot and download its results. Trial data stays in this page only.</p></div>
+          <Button asChild><Link to="/trial">Start trial <ArrowRight className="size-4" /></Link></Button>
+        </section>
         <section className="overflow-hidden rounded-lg border border-border bg-card shadow-card">
           <div className="border-b border-border px-5 py-4">
             <h2 className="text-sm font-semibold">Experiments</h2>
@@ -61,7 +67,7 @@ function ExperimentsPage() {
                 <h3 className="font-medium">{draft.name || "H&M and Zara comparison"}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {hasResults
-                    ? "AI comparison ready · current session"
+                    ? isDemo ? "Demo pilot · results ready" : "AI comparison ready · current session"
                     : "Demo experiment · H&M and Zara sample screenshots"}
                 </p>
               </div>
@@ -71,7 +77,7 @@ function ExperimentsPage() {
                     to="/experiments/$experimentId"
                     params={{ experimentId: "prototype-current" }}
                   >
-                    View results <ArrowRight className="size-4" />
+                    {isDemo ? "View demo" : "View results"} <ArrowRight className="size-4" />
                   </Link>
                 </Button>
               ) : (

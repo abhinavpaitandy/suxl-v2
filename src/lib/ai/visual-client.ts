@@ -38,7 +38,7 @@ export async function compareScreenshots(
   successEvent: string,
   onProgress?: (stage: "preparing" | "checking-cache" | "analysing") => void,
   simulation?: { persona: string; perspectives: number; diversity: "low" | "medium" | "high" },
-  options?: { forceRefresh?: boolean; signal?: AbortSignal },
+  options?: { forceRefresh?: boolean; signal?: AbortSignal; cache?: boolean },
 ): Promise<VisualResult> {
   onProgress?.("preparing");
   const withScreens = variants.filter((v) => v.screenshotUrl);
@@ -57,7 +57,7 @@ export async function compareScreenshots(
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(payload));
   const key = `suxl-visual-v3-${Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("")}`;
   try {
-    const entry = JSON.parse(sessionStorage.getItem(key) || "null");
+    const entry = options?.cache === false ? null : JSON.parse(sessionStorage.getItem(key) || "null");
     if (!options?.forceRefresh && entry && Date.now() - entry.time < 24 * 60 * 60 * 1000) {
       const cached = visualResultSchema.safeParse(entry.result);
       if (cached.success) return cached.data;
@@ -98,6 +98,7 @@ export async function compareScreenshots(
   const result = visualResultSchema.parse(body);
   try {
     // Bound storage use and retain results only in this browser session.
+    if (options?.cache === false) return result;
     const keys = Object.keys(sessionStorage).filter((k) => k.startsWith("suxl-visual-v3-"));
     if (keys.length >= 20 && keys[0]) sessionStorage.removeItem(keys[0]);
     sessionStorage.setItem(key, JSON.stringify({ time: Date.now(), result }));

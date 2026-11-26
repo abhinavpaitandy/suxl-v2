@@ -38,20 +38,20 @@ async function cacheContext(token: string | undefined, signal: AbortSignal): Pro
   return `${value.provider}:${value.model}`;
 }
 
-export async function generatePilotPeople(options: { persona: string; task: string; count: number; diversity: "low" | "medium" | "high"; signal: AbortSignal; onTrace?: (event: PilotTraceEvent) => void; fresh?: boolean }): Promise<string[]> {
-  const { persona, task, count, diversity, signal, onTrace, fresh } = options;
+export async function generatePilotPeople(options: { persona: string; task: string; count: number; diversity: "low" | "medium" | "high"; signal: AbortSignal; onTrace?: (event: PilotTraceEvent) => void; fresh?: boolean; cache?: boolean }): Promise<string[]> {
+  const { persona, task, count, diversity, signal, onTrace, fresh, cache = true } = options;
   const token = await getToken();
   const provider = await cacheContext(token, signal);
   const seeds = createPilotProfiles(count, diversity);
   const profiles: string[] = [];
   const generatedProfiles = new Set<string>();
   const keys = await Promise.all(Array.from({ length: Math.ceil(seeds.length / 2) }, (_, index) => pilotCacheKey(["people-v2", provider, persona, task, diversity, count, seeds.slice(index * 2, index * 2 + 2)])));
-  if (fresh) keys.forEach(removePilotCache);
+  if (fresh && cache) keys.forEach(removePilotCache);
   for (let offset = 0; offset < seeds.length; offset += 2) {
     const batch = seeds.slice(offset, offset + 2);
     const key = keys[offset / 2]!;
     const schema = z.array(z.string().min(20).max(500)).length(batch.length);
-    const saved = schema.safeParse(readPilotCache(key));
+    const saved = schema.safeParse(cache ? readPilotCache(key) : undefined);
     let generated: string[];
     if (saved.success) {
       generated = saved.data;
@@ -67,7 +67,7 @@ export async function generatePilotPeople(options: { persona: string; task: stri
       const body = await res.json();
       if (!res.ok) throw new Error(typeof body.error === "string" ? body.error : "Persona generation failed.");
       generated = schema.parse(body.profiles);
-      if (!writePilotCache(key, generated)) onTrace?.({ stage: "personas", message: "Browser storage is unavailable; this batch cannot be resumed after reload." });
+      if (cache && !writePilotCache(key, generated)) onTrace?.({ stage: "personas", message: "Browser storage is unavailable; this batch cannot be resumed after reload." });
     }
     for (const profile of generated) generatedProfiles.add(profile.trim().toLowerCase());
     profiles.push(...generated.map((profile, i) => `${batch[i]} ${profile}`.slice(0, 500)));
@@ -87,8 +87,10 @@ export async function runScreenshotPilot(options: {
   onProgress: (done: number, total: number) => void;
   onTrace?: (event: PilotTraceEvent) => void;
   profiles?: string[];
+  cache?: boolean;
+  onDecision?: (run: PilotRun) => void;
 }): Promise<PilotRun[]> {
-  const { variants, persona, task, runsPerVariant, diversity, signal, onProgress, onTrace } = options;
+  const { variants, persona, task, runsPerVariant, diversity, signal, onProgress, onTrace, cache = true } = options;
   onTrace?.({ stage: "preparing", message: `Preparing ${variants.length} screenshots.` });
   const screenshots = await Promise.all(
     variants.map(async (variant) => ({
@@ -98,7 +100,7 @@ export async function runScreenshotPilot(options: {
   );
   const token = await getToken();
   const provider = await cacheContext(token, signal);
-  const profiles = options.profiles ?? await generatePilotPeople({ persona, task, count: runsPerVariant, diversity, signal, ...(onTrace ? { onTrace } : {}) });
+  const profiles = options.profiles ?? await generatePilotPeople({ persona, task, count: runsPerVariant, diversity, signal, cache, ...(onTrace ? { onTrace } : {}) });
   if (profiles.length !== runsPerVariant || new Set(profiles).size !== profiles.length) throw new Error("The pilot needs one distinct profile per participant.");
   const jobs = Array.from({ length: runsPerVariant }, (_, run) =>
     screenshots.map((screenshot) => ({
@@ -116,7 +118,7 @@ export async function runScreenshotPilot(options: {
       const job = jobs[next++]!;
       try {
         const key = await pilotCacheKey(["decision-v3-attention", provider, persona, task, job.screenshot.id, job.run, job.profile, job.screenshot.tiles]);
-        const saved = currentOutcomeSchema.safeParse(readPilotCache(key));
+        const saved = currentOutcomeSchema.safeParse(cache ? readPilotCache(key) : undefined);
         let outcome: z.infer<typeof outcomeSchema>;
         if (saved.success) {
           outcome = saved.data;
@@ -139,9 +141,11 @@ export async function runScreenshotPilot(options: {
           const body = await res.json();
           if (!res.ok) throw new Error(typeof body.error === "string" ? body.error : "Pilot run failed.");
           outcome = currentOutcomeSchema.parse(body);
-          if (!writePilotCache(key, outcome)) onTrace?.({ stage: "decisions", message: "Browser storage is unavailable; this decision cannot be resumed after reload." });
+          if (cache && !writePilotCache(key, outcome)) onTrace?.({ stage: "decisions", message: "Browser storage is unavailable; this decision cannot be resumed after reload." });
         }
-        results.push({ variantId: job.screenshot.id, profile: job.profile, run: job.run, outcome });
+        const decision = { variantId: job.screenshot.id, profile: job.profile, run: job.run, outcome };
+        results.push(decision);
+        options.onDecision?.(decision);
         const name = variants.find((variant) => variant.id === job.screenshot.id)?.name || job.screenshot.id;
         onTrace?.({ stage: "decisions", message: `${name}, persona ${job.run + 1}: ${outcome.action === "click" ? `click (${(outcome.x * 100).toFixed(1)}%, ${(outcome.y * 100).toFixed(1)}%)` : "no click"}. ${outcome.reason}` });
         onProgress(results.length, jobs.length);

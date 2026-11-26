@@ -28,7 +28,7 @@ export const Route = createFileRoute("/experiments/new/targets")({
   component: TargetReviewPage,
 });
 
-function TargetReviewPage() {
+export function TargetReviewPage({ onStep }: { onStep?: (step: number) => void } = {}) {
   const navigate = useNavigate();
   const { draft, confirmTarget, adjustTarget, setDetectedTarget, setVisualObservations } =
     useDraft();
@@ -46,6 +46,8 @@ function TargetReviewPage() {
         draft.task,
         draft.successEvent,
         setAnalysisStage,
+        undefined,
+        onStep ? { cache: false } : undefined,
       );
       setVisualObservations(result.observations);
       const missing = draft.variants.filter(
@@ -94,13 +96,13 @@ function TargetReviewPage() {
           description={DESCRIPTION}
           leading={
             <Button variant="outline" asChild>
-              <Link to="/experiments/new/variants">
+              <Link to="/experiments/new/variants" onClick={onStep ? (event) => { event.preventDefault(); onStep(2); } : undefined}>
                 <ArrowLeft className="size-4" /> Back to Variants
               </Link>
             </Button>
           }
         />
-        <WizardProgress currentStep={3} />
+        <WizardProgress currentStep={3} readOnly={Boolean(onStep)} />
         <PageBody>
           <div className="rounded-lg border border-border bg-card px-6 py-16 text-center shadow-card">
             <h2 className="text-sm font-semibold text-foreground">Screens need analysis first</h2>
@@ -108,7 +110,7 @@ function TargetReviewPage() {
               Add a valid URL or upload and analyse a screenshot for each variant.
             </p>
             <Button asChild className="mt-5">
-              <Link to="/experiments/new/variants">
+              <Link to="/experiments/new/variants" onClick={onStep ? (event) => { event.preventDefault(); onStep(2); } : undefined}>
                 <ArrowLeft className="size-4" />
                 Back to Variants
               </Link>
@@ -127,14 +129,14 @@ function TargetReviewPage() {
         description={DESCRIPTION}
         leading={
           <Button variant="outline" asChild>
-            <Link to="/experiments/new/variants">
+            <Link to="/experiments/new/variants" onClick={onStep ? (event) => { event.preventDefault(); onStep(2); } : undefined}>
               <ArrowLeft className="size-4" />
               Back to Variants
             </Link>
           </Button>
         }
       />
-      <WizardProgress currentStep={3} />
+      <WizardProgress currentStep={3} readOnly={Boolean(onStep)} />
 
       <PageBody>
         <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_280px]">
@@ -235,14 +237,14 @@ function TargetReviewPage() {
             {/* Actions */}
             <div className="flex items-center justify-end gap-3">
               <Button variant="outline" asChild>
-                <Link to="/experiments/new/variants">
+                <Link to="/experiments/new/variants" onClick={onStep ? (event) => { event.preventDefault(); onStep(2); } : undefined}>
                   <ArrowLeft className="size-4" />
                   Back to Variants
                 </Link>
               </Button>
               <Button
                 disabled={!allReviewed}
-                onClick={() => navigate({ to: "/experiments/new/simulation" })}
+                onClick={() => onStep ? onStep(4) : navigate({ to: "/experiments/new/simulation" })}
               >
                 Continue to Simulation
                 <ArrowRight className="size-4" />

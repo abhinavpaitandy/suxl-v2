@@ -4,14 +4,12 @@ A desktop-first internal prototype for comparing 2–3 interface variants with A
 
 ## Included
 
-- Experiment dashboard with five realistic mock experiments
-- Four-step experiment setup with screenshot uploads and target review
-- Prototype simulation results, comparison charts, cohorts, and click maps
-- Admin screen placeholders
-- Email/password and Google sign-in through Lovable Cloud
-- OAuth-protected MCP tools for listing experiments, reading experiment details, and comparing variants
+- Five-step experiment setup, screenshot variants, reviewed target areas and a synthetic first-action pilot.
+- H&M/Zara example and demo with shared comparison controls, click heatmaps, persona-specific attention paths, UEyes and optional visual accessibility suggestions.
+- A separate in-memory trial with the same five steps and a raw-data ZIP download. Download before leaving or reloading: trial data is not persisted.
+- Admin placeholders, Lovable Cloud sign-in and OAuth-protected MCP tools.
 
-The experiment data is bundled mock data. Admin settings use browser-local storage. There is no real simulation engine or application database schema in this version.
+Synthetic results are model predictions, not observed users, task-completion measurements or an accessibility audit. Experiments remain bundled mock data and admin settings use browser storage; there is no application database for trials. See [project handoff](project-handoff/LOVABLE-HANDOFF.md) for architecture, limitations and verification.
 
 ## Development
 
@@ -48,4 +46,4 @@ CLOUDFLARE_API_TOKEN=your_cloudflare_api_token
 
 Optionally set `CLOUDFLARE_AI_MODEL` to another compatible vision model. Start with `npm run dev:local`; the server loads `.env.local` and listens on localhost. Direct Cloudflare access is restricted to local development. Lovable's managed key takes precedence in hosted environments. Keep tokens server-side and never use the `VITE_` prefix. Lovable secrets are managed in Lovable.
 
-On the target-review step, **Analyse screenshots with AI** sends the screenshots and task details to the configured provider and returns visual observations and suggested target boxes. Review all suggestions. The simulation and its numerical results are still mock data, not measured user behaviour. For local API access, run `npm run dev:local`; this binds the server to localhost. Lovable-hosted AI requests require a signed-in user.
+On the target-review step, **Analyse screenshots with AI** sends the screenshots and task details to the configured provider and returns visual observations and suggested target boxes. Review all suggestions. The screenshot pilot uses model-generated predictions; its numerical results are not measured user behaviour. For local API access, run `npm run dev:local`; this binds the server to localhost. Lovable-hosted AI requests require a signed-in user.

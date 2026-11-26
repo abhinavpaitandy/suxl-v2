@@ -39,7 +39,7 @@ const ERROR_MESSAGES: Record<FieldKey, string> = {
   successEvent: "Define the success event.",
 };
 
-function SetupPage() {
+export function SetupPage({ onStep }: { onStep?: (step: number) => void } = {}) {
   const navigate = useNavigate();
   const { draft, updateExperimentDetails } = useDraft();
   const [errors, setErrors] = useState<Partial<Record<FieldKey, string>>>({});
@@ -71,7 +71,7 @@ function SetupPage() {
 
   function handleContinue() {
     if (!validate()) return;
-    navigate({ to: "/experiments/new/variants" });
+    if (onStep) onStep(2); else navigate({ to: "/experiments/new/variants" });
   }
 
   function clearError(key: FieldKey) {
@@ -99,7 +99,7 @@ function SetupPage() {
           </Button>
         }
       />
-      <WizardProgress currentStep={1} />
+      <WizardProgress currentStep={1} readOnly={Boolean(onStep)} />
 
       <PageBody>
         <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_280px]">

@@ -7,6 +7,7 @@ import { getUEyesDemoPath } from "@/lib/ueyes-demo-paths";
 import { exportHeatmap } from "@/lib/pilot-export";
 import { Download, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import type { AccessibilityFinding } from "@/lib/ai/accessibility-schema";
 import { AccessibilityOverlay } from "@/components/accessibility-overlay";
 import { ComparisonControls, ComparisonProvider, useComparison } from "@/components/comparison-controls";
 
@@ -28,6 +29,8 @@ type PreviewProps = {
   target?: BoundingBox | undefined;
   clicks: Click[];
   runs: PilotRun[];
+  ephemeral?: boolean;
+  onAccessibilityFindings?: (findings: AccessibilityFinding[] | null) => void;
 };
 
 export function ClickHeatmapPreview(props: PreviewProps) {
@@ -36,7 +39,7 @@ export function ClickHeatmapPreview(props: PreviewProps) {
   return <ClickHeatmapPreviewContent {...props} />;
 }
 
-function ClickHeatmapPreviewContent({ id, variantName, screenshotUrl, target, clicks, runs }: PreviewProps) {
+function ClickHeatmapPreviewContent({ id, variantName, screenshotUrl, target, clicks, runs, ephemeral = false, onAccessibilityFindings }: PreviewProps) {
   const { showPath, showHeatmap, showPersonaPath, showUEyes, setShowUEyes, showAccessibility, accessibilityVersion, selected } = useComparison()!;
   const [ueyesPath, setUEyesPath] = useState<{ x: number; y: number }[]>();
   const [ueyesSource, setUEyesSource] = useState<"demo" | "local">("demo");
@@ -60,14 +63,14 @@ function ClickHeatmapPreviewContent({ id, variantName, screenshotUrl, target, cl
       const hash = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
       const key = `suxl-ueyes-v1-${Array.from(new Uint8Array(hash), (b) => b.toString(16).padStart(2, "0")).join("")}`;
       let points: { x: number; y: number }[] | undefined;
-      try { const cached = JSON.parse(localStorage.getItem(key) || "null"); if (Array.isArray(cached) && cached.length === 4 && cached.every((p) => Number.isFinite(p.x) && Number.isFinite(p.y) && p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1)) points = cached; } catch { /* Cache is optional. */ }
+      try { const cached = JSON.parse((ephemeral ? null : localStorage.getItem(key)) || "null"); if (Array.isArray(cached) && cached.length === 4 && cached.every((p) => Number.isFinite(p.x) && Number.isFinite(p.y) && p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1)) points = cached; } catch { /* Cache is optional. */ }
       if (!points) {
         const response = await fetch("/api/local-ueyes", { method: "POST", headers: { "Content-Type": "application/octet-stream" }, body: blob });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.error || "Local UEyes inference is unavailable in this deployment.");
         if (!Array.isArray(data.points) || data.points.length !== 4 || data.points.some((p: { x: number; y: number }) => !Number.isFinite(p.x) || !Number.isFinite(p.y) || p.x < 0 || p.x > 1 || p.y < 0 || p.y > 1)) throw new Error("UEyes returned invalid coordinates.");
         points = data.points;
-        try { localStorage.setItem(key, JSON.stringify(points)); } catch { /* Cache is optional. */ }
+        try { if (!ephemeral) localStorage.setItem(key, JSON.stringify(points)); } catch { /* Cache is optional. */ }
       }
       setUEyesPath(points); setUEyesSource("local"); setShowUEyes(true);
     } catch (error) { setUEyesError(error instanceof Error ? error.message : "Unable to generate a gaze path."); }
@@ -83,7 +86,7 @@ function ClickHeatmapPreviewContent({ id, variantName, screenshotUrl, target, cl
       <div id={id} className="relative w-full">
         {target ? <TargetOverlayPreview screenshotUrl={screenshotUrl} boundingBox={target} adjustMode={false} onBoxChange={() => {}} onDrawEnd={() => {}} onDrawCancel={() => {}} alt={`${variantName} screenshot with reviewed target`} /> : <img className="w-full rounded border" src={screenshotUrl} alt={`${variantName} screenshot`} />}
         <SimulatedClickHeatmap clicks={clicks} visible={showHeatmap} />
-        <AccessibilityOverlay screenshotUrl={screenshotUrl} variantName={variantName} enabled={showAccessibility} refreshVersion={accessibilityVersion} />
+        <AccessibilityOverlay screenshotUrl={screenshotUrl} variantName={variantName} enabled={showAccessibility} refreshVersion={accessibilityVersion} cache={!ephemeral} {...(onAccessibilityFindings ? { onFindings: onAccessibilityFindings } : {})} />
         {showPersonaPath && personaRuns.map((item) => {
           const personaPath = item.outcome.attentionPath!;
           return <svg key={`persona-${item.run}`} className="pointer-events-none absolute inset-0 z-20 h-full w-full" viewBox="0 0 1000 1000" preserveAspectRatio="none" opacity={selected === "all" ? "0.35" : "0.78"} role="img" aria-label={`${variantName} predicted attention path for person ${item.run + 1}`}>

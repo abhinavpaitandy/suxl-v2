@@ -216,10 +216,11 @@ interface DraftContextValue {
 
 const DraftContext = createContext<DraftContextValue | null>(null);
 
-export function DraftProvider({ children }: { children: ReactNode }) {
+export function DraftProvider({ children, ephemeral = false }: { children: ReactNode; ephemeral?: boolean }) {
   const [draft, dispatch] = useReducer(reducer, DEFAULT_DRAFT);
   const [restored, setRestored] = useState(false);
   useEffect(() => {
+    if (ephemeral) { setRestored(true); return; }
     try {
       const stored = sessionStorage.getItem("suxl-experiment-draft-v1");
       if (stored) {
@@ -233,12 +234,12 @@ export function DraftProvider({ children }: { children: ReactNode }) {
       }
     } catch { /* The draft remains usable if browser storage is unavailable. */ }
     setRestored(true);
-  }, []);
+  }, [ephemeral]);
   useEffect(() => {
-    if (!restored) return;
+    if (!restored || ephemeral) return;
     try { sessionStorage.setItem("suxl-experiment-draft-v1", JSON.stringify(draft)); }
     catch { /* Large uploaded screenshots can exceed browser storage limits. */ }
-  }, [draft, restored]);
+  }, [draft, restored, ephemeral]);
 
   const updateExperimentDetails = useCallback(
     (
@@ -318,13 +319,14 @@ export function DraftProvider({ children }: { children: ReactNode }) {
   );
   const resetDraft = useCallback(() => dispatch({ type: "RESET" }), []);
   const restoreSavedPilot = useCallback((saved: ExperimentDraft) => {
+    if (ephemeral) throw new Error("Saved pilots are unavailable in a trial.");
     if (!isCompletedDemo(saved)) throw new Error("The saved pilot is incomplete.");
     // Preserve the existing draft before replacing it; do not proceed on quota errors.
     const key = `suxl-draft-backup-v1:${Date.now()}-${Math.random().toString(36).slice(2)}`;
     localStorage.setItem(key, JSON.stringify({ savedAt: new Date().toISOString(), draft }));
     sessionStorage.setItem("suxl-experiment-draft-v1", JSON.stringify(saved));
     dispatch({ type: "RESTORE", draft: saved });
-  }, [draft]);
+  }, [draft, ephemeral]);
 
   const value = useMemo(
     () => ({

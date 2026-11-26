@@ -145,11 +145,11 @@ export function ExperimentStepper({
   );
 }
 
-export function WizardProgress({ currentStep }: { currentStep: number }) {
+export function WizardProgress({ currentStep, readOnly = false }: { currentStep: number; readOnly?: boolean }) {
   return (
     <div className="border-b border-border bg-card">
       <div className="mx-auto w-full max-w-7xl px-8 py-3">
-        <ExperimentStepper currentStep={currentStep} />
+        <ExperimentStepper currentStep={currentStep} readOnly={readOnly} />
       </div>
     </div>
   );

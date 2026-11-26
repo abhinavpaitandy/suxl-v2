@@ -28,13 +28,13 @@ export const Route = createFileRoute("/experiments/new/variants")({
   component: VariantUploadPage,
 });
 
-function VariantUploadPage() {
+export function VariantUploadPage({ onStep }: { onStep?: (step: number) => void } = {}) {
   const navigate = useNavigate();
   const { draft, addVariant, removeVariant, updateVariant, setDetectedTarget } = useDraft();
   const [showValidation, setShowValidation] = useState(false);
 
   const variants = draft.variants;
-  const canContinue = variants.length >= 2 && variants.every(hasVariantSource);
+  const canContinue = variants.length >= 2 && variants.every((variant) => hasVariantSource(variant) && (!onStep || Boolean(variant.screenshotUrl)));
 
   function handleContinue() {
     if (!canContinue) {
@@ -46,6 +46,7 @@ function VariantUploadPage() {
       if (!variant.screenshotUrl || variant.detectedTarget) return;
       setDetectedTarget(variant.id, demoAddToBagTarget(variant.screenshotUrl, draft.successEvent) ?? generateMockTarget(index, draft.successEvent));
     });
+    if (onStep) { onStep(3); return; }
     navigate({
       to: variants.some((v) => v.screenshotUrl)
         ? "/experiments/new/targets"
@@ -63,14 +64,14 @@ function VariantUploadPage() {
         description={DESCRIPTION}
         leading={
           <Button variant="outline" asChild>
-            <Link to="/experiments/new">
+            <Link to="/experiments/new" onClick={onStep ? (event) => { event.preventDefault(); onStep(1); } : undefined}>
               <ArrowLeft className="size-4" />
               Back to Setup
             </Link>
           </Button>
         }
       />
-      <WizardProgress currentStep={2} />
+      <WizardProgress currentStep={2} readOnly={Boolean(onStep)} />
 
       <PageBody>
         <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_280px]">
@@ -100,7 +101,7 @@ function VariantUploadPage() {
                 <p className="text-sm font-medium text-destructive">
                   {variants.length < 2
                     ? "Add at least 2 variants to continue."
-                    : "Provide a valid HTTP or HTTPS URL or a screenshot for each variant. Any URL entered must be valid."}
+                    : onStep ? "Add a screenshot for each trial variant. Any URL entered must be valid." : "Provide a valid HTTP or HTTPS URL or a screenshot for each variant. Any URL entered must be valid."}
                 </p>
               </div>
             )}
@@ -153,7 +154,7 @@ function VariantUploadPage() {
             {/* Actions */}
             <div className="flex items-center justify-end gap-3">
               <Button variant="outline" asChild>
-                <Link to="/experiments/new">
+                <Link to="/experiments/new" onClick={onStep ? (event) => { event.preventDefault(); onStep(1); } : undefined}>
                   <ArrowLeft className="size-4" />
                   Back to Setup
                 </Link>
