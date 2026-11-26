@@ -76,9 +76,9 @@ export function TargetReviewCard({ variant, onConfirm, onAdjust }: TargetReviewC
     const normalized = clamped / 100;
     const next: BoundingBox = { ...draftBox, [field]: normalized };
 
-    // Validate: x + width <= 1, y + height <= 1
-    if (next.x + next.width > 1) next.x = Math.max(0, 1 - next.width);
-    if (next.y + next.height > 1) next.y = Math.max(0, 1 - next.height);
+    // Preserve the position the user entered and fit the box within the image.
+    if (next.x + next.width > 1) next.width = Math.max(0, 1 - next.x);
+    if (next.y + next.height > 1) next.height = Math.max(0, 1 - next.y);
 
     setDraftBox(next);
   }
@@ -99,6 +99,11 @@ export function TargetReviewCard({ variant, onConfirm, onAdjust }: TargetReviewC
       </div>
 
       {/* Screenshot with overlay */}
+      {adjustMode && (
+        <p className="mt-4 text-xs text-muted-foreground">
+          Draw a rectangle around the target on the image, or fine-tune its position below.
+        </p>
+      )}
       <div className="mt-4">
         <TargetOverlayPreview
           screenshotUrl={variant.screenshotUrl!}
@@ -124,12 +129,16 @@ export function TargetReviewCard({ variant, onConfirm, onAdjust }: TargetReviewC
           <span className="text-xs text-muted-foreground">Detected target</span>
           <span className="text-right text-sm font-medium text-foreground">{target.label}</span>
         </div>
-        <div className="flex items-start justify-between gap-4">
-          <span className="text-xs text-muted-foreground">Target detection confidence</span>
-          <span className="tabular text-sm font-medium text-foreground">
-            {Math.round(target.confidence * 100)}%
-          </span>
-        </div>
+        {target.source === "ai" ? (
+          <p className="text-xs text-muted-foreground">
+            AI suggestion · verify the location and adjust if needed.
+            {target.note ? ` ${target.note}` : ""}
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Demo placeholder · this box was not detected from the image. Adjust it before use.
+          </p>
+        )}
       </div>
 
       {/* Adjust mode: numeric inputs */}

@@ -1,412 +1,332 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Loader2, Play } from "lucide-react";
-
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useRef, useState } from "react";
+import { ArrowLeft, Sparkles, LoaderCircle } from "lucide-react";
+import { ThinkingOrb } from "thinking-orbs";
 import { PageBody, PageHeader } from "@/components/app-shell";
-import { Pill } from "@/components/status-badge";
+import { WizardProgress } from "@/components/experiment-stepper";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { cn } from "@/lib/utils";
 import { useDraft } from "@/lib/draft-store";
-import { isTargetReviewed, type BehaviourDiversity, type PilotSize } from "@/lib/types";
-
-const TITLE = "Simulation Setup — Synthetic UX Lab";
-const DESCRIPTION = "Review the experiment and configure the synthetic pilot.";
+import { generatePilotPeople, runScreenshotPilot, type PilotTraceEvent } from "@/lib/ai/pilot-client";
+import { isVariantReady } from "@/lib/variant-source";
+import { saveCompletedExample } from "@/lib/saved-example";
 
 export const Route = createFileRoute("/experiments/new/simulation")({
-  head: () => ({
-    meta: [
-      { title: TITLE },
-      { name: "description", content: DESCRIPTION },
-      { property: "og:title", content: TITLE },
-      { property: "og:description", content: DESCRIPTION },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-    ],
-  }),
-  component: SimulationSetupPage,
+  head: () => ({ meta: [{ title: "Review and analyse — Synthetic UX Lab" }] }),
+  component: AnalysisSetupPage,
 });
 
-const PILOT_OPTIONS: { value: PilotSize; label: string; description: string }[] = [
-  { value: 100, label: "100", description: "Quick directional check" },
-  { value: 500, label: "500", description: "Recommended for most pre-tests" },
-  { value: 1000, label: "1,000", description: "Broader synthetic coverage" },
-];
+function TraceViewer({ trace }: { trace: Array<{ time: string; message: string }> }) {
+  if (!trace.length) return null;
+  return (
+    <details className="rounded-lg border border-border bg-card p-5">
+      <summary className="cursor-pointer font-medium">Pilot trace ({trace.length} {trace.length === 1 ? "event" : "events"})</summary>
+      <p className="mt-2 text-sm text-muted-foreground">Generated personas and model decisions from this run. This trace is kept in this page only.</p>
+      <ol className="mt-3 max-h-80 space-y-2 overflow-y-auto text-sm" aria-label="Pilot trace">
+        {trace.map((entry, index) => <li key={index}><span className="mr-2 text-muted-foreground">{entry.time}</span>{entry.message}</li>)}
+      </ol>
+    </details>
+  );
+}
 
-const DIVERSITY_OPTIONS: {
-  value: BehaviourDiversity;
-  label: string;
-  description: string;
-}[] = [
-  { value: "low", label: "Low", description: "Variation stays close to the primary persona." },
-  {
-    value: "medium",
-    label: "Medium",
-    description: "Moderate behavioural variation around the primary persona.",
-  },
-  {
-    value: "high",
-    label: "High",
-    description: "Broader variation while remaining compatible with the persona.",
-  },
-];
+function AnalysisSetupPage() {
+  const { draft, setVisualObservations, setSimulatedClicks, setPilotRuns, clearAnalysisResults } =
+    useDraft();
+  const animationRef = useRef<HTMLDivElement>(null);
+  const controllerRef = useRef<AbortController | null>(null);
+  const [running, setRunning] = useState(false);
+  const [activeStage, setActiveStage] = useState<"people" | "prototype">("people");
+  const [tab, setTab] = useState<"people" | "prototype">("people");
+  const [complete, setComplete] = useState(false);
+  const pilotSize = 10;
+  const [people, setPeople] = useState<string[]>([]);
+  const [cohortKey, setCohortKey] = useState("");
+  const [diversity, setDiversity] = useState<"low" | "medium" | "high">("high");
+  const currentCohortKey = JSON.stringify([draft.persona, draft.task, diversity]);
+  const cohortReady = people.length === pilotSize && cohortKey === currentCohortKey;
+  const [progress, setProgress] = useState({ done: 0, total: 0 });
+  const [error, setError] = useState<string | null>(null);
+  const [trace, setTrace] = useState<Array<{ time: string; message: string }>>([]);
+  const [phase, setPhase] = useState("Preparing screenshots…");
+  const ready = Boolean(
+    draft.name &&
+    draft.persona &&
+    draft.task &&
+    draft.successEvent &&
+    draft.variants.length >= 2 &&
+    draft.variants.every((v) => v.screenshotUrl && isVariantReady(v)),
+  );
 
-const COHORT_PREVIEW: Record<BehaviourDiversity, string[]> = {
-  low: ["Cautious", "Experienced", "Hurried"],
-  medium: ["Hurried", "Cautious", "Experienced", "Low familiarity", "Exploratory"],
-  high: ["Hurried", "Cautious", "Experienced", "Low familiarity", "Low attention", "Exploratory"],
-};
-
-const RUN_PHASES = [
-  "Preparing synthetic population…",
-  "Simulating first-action decisions…",
-  "Aggregating results…",
-];
-
-const PHASE_DURATION = 280;
-
-function SimulationSetupPage() {
-  const navigate = useNavigate();
-  const { draft, setPilotSize, setBehaviourDiversity } = useDraft();
-  const [isRunning, setIsRunning] = useState(false);
-  const [runPhase, setRunPhase] = useState(0);
-  const phaseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (phaseTimer.current) clearTimeout(phaseTimer.current);
-    };
-  }, []);
-
-  const variants = draft.variants;
-
-  const hasScreenshots = variants.every((v) => v.screenshotUrl);
-  const hasTargets = variants.every((v) => v.detectedTarget);
-  const allReviewed =
-    hasTargets && variants.every((v) => v.detectedTarget && isTargetReviewed(v.detectedTarget));
-  const hasCoreData = draft.name && draft.persona && draft.task && draft.successEvent;
-  const hasMinVariants = variants.length >= 2;
-
-  const missingScreenshots = !hasScreenshots;
-  const missingTargets = !hasTargets || !allReviewed;
-  const incomplete = !hasCoreData || !hasMinVariants || missingScreenshots || missingTargets;
-
-  const totalObservations = draft.pilotSize * variants.length;
-  const pilotLabel = draft.pilotSize.toLocaleString();
-  const diversityLabel =
-    draft.behaviourDiversity.charAt(0).toUpperCase() + draft.behaviourDiversity.slice(1);
-
-  function handleRun() {
-    setIsRunning(true);
-    setRunPhase(0);
-
-    RUN_PHASES.forEach((_, i) => {
-      phaseTimer.current = setTimeout(
-        () => {
-          if (i < RUN_PHASES.length - 1) {
-            setRunPhase(i + 1);
-          } else {
-            setIsRunning(false);
-            // Prototype only:
-            // Results v2 will replace this fixed mock experiment with
-            // results generated from the current experiment draft.
-            navigate({
-              to: "/experiments/$experimentId",
-              params: { experimentId: "prototype-current" },
-            });
-          }
-        },
-        (i + 1) * PHASE_DURATION,
-      );
-    });
+  function recordTrace(event: PilotTraceEvent) {
+    setTrace((entries) => [...entries, { time: new Date().toLocaleTimeString(), message: event.message }]);
+    if (event.stage === "preparing" || (event.stage === "personas" && (event.message.startsWith("Generating people") || event.message.startsWith("Reused saved people")))) setPhase(event.message);
+    if (event.stage === "decisions") setPhase("Running independent first-action decisions");
   }
 
-  // ─── Missing data guards ──────────────────────────────────────
+  async function generatePeople() {
+    setActiveStage("people");
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    setRunning(true); setComplete(false); setError(null); setTrace([]); setPeople([]);
+    setPhase("Preparing people…");
+    try {
+      const generated = await generatePilotPeople({ persona: draft.persona, task: draft.task, count: pilotSize, diversity, signal: controller.signal, onTrace: recordTrace, fresh: cohortReady });
+      setPeople(generated);
+      setCohortKey(currentCohortKey);
+      setPhase("People ready to review");
+    } catch (e) {
+      const message = controller.signal.aborted ? "People generation cancelled." : e instanceof Error ? e.message : "Unable to generate people.";
+      setError(message);
+      setTrace((entries) => [...entries, { time: new Date().toLocaleTimeString(), message: `Stopped: ${message}` }]);
+    } finally { controllerRef.current = null; setRunning(false); }
+  }
 
-  if (incomplete) {
-    const missingTargetsOnly = hasScreenshots && (!hasTargets || !allReviewed);
-    const title = missingTargetsOnly ? "Targets need review" : "Complete earlier steps first";
-    const description = missingTargetsOnly
-      ? "Confirm or adjust every detected target before configuring the simulation."
-      : "Add experiment details, upload screenshots, and analyse variants before setting up the simulation.";
-    const backTo = missingTargetsOnly ? "/experiments/new/targets" : "/experiments/new/variants";
-    const backLabel = missingTargetsOnly ? "Back to Target Review" : "Back to Variants";
-
-    return (
-      <>
-        <PageHeader
-          eyebrow="New Experiment · Step 4 of 5"
-          title="Simulation Setup"
-          description={DESCRIPTION}
-        />
-        <PageBody>
-          <div className="rounded-lg border border-border bg-card px-6 py-16 text-center shadow-card">
-            <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-            <p className="mx-auto mt-1.5 max-w-sm text-sm text-muted-foreground">{description}</p>
-            <Button asChild className="mt-5">
-              <Link to={backTo}>
-                <ArrowLeft className="size-4" />
-                {backLabel}
-              </Link>
-            </Button>
-          </div>
-        </PageBody>
-      </>
+  async function run() {
+    setActiveStage("prototype");
+    clearAnalysisResults();
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    setRunning(true);
+    setComplete(false);
+    setError(null);
+    setTrace([]);
+    setPhase("Preparing screenshots…");
+    setProgress({ done: 0, total: pilotSize * draft.variants.length });
+    requestAnimationFrame(() =>
+      animationRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
     );
+    try {
+      const runs = await runScreenshotPilot({
+        variants: draft.variants,
+        persona: draft.persona,
+        task: draft.task,
+        runsPerVariant: pilotSize,
+        diversity,
+        profiles: people,
+        signal: controller.signal,
+        onProgress: (done, total) => setProgress({ done, total }),
+        onTrace: recordTrace,
+      });
+      const clicks = runs.flatMap((run) =>
+        run.outcome.action === "click"
+          ? [{ id: run.variantId, persona: run.profile, x: run.outcome.x, y: run.outcome.y }]
+          : [],
+      );
+      const observations = draft.variants.map((variant) => {
+          const subset = runs.filter((run) => run.variantId === variant.id);
+          const clicked = subset.filter((run) => run.outcome.action === "click").length;
+          return {
+            title: variant.name,
+            detail: `${clicked} of ${subset.length} synthetic runs produced a first click; ${subset.length - clicked} took no action.`,
+          };
+        });
+      setPilotRuns(runs);
+      setSimulatedClicks(clicks);
+      setVisualObservations(observations);
+      try {
+        saveCompletedExample({ ...draft, pilotRuns: runs, simulatedClicks: clicks, visualObservations: observations });
+      } catch {
+        setError("Pilot completed, but the example could not be saved in browser storage. Open results to retry saving it.");
+      }
+      setComplete(true);
+    } catch (e) {
+      const message = controller.signal.aborted ? "Pilot cancelled." : e instanceof Error ? e.message : "Unable to analyse screenshots.";
+      setError(message);
+      setTrace((entries) => [...entries, { time: new Date().toLocaleTimeString(), message: `Stopped: ${message}` }]);
+    } finally {
+      controllerRef.current = null;
+      setRunning(false);
+    }
   }
-
-  // ─── Normal simulation setup ──────────────────────────────────
-
   return (
     <>
       <PageHeader
         eyebrow="New Experiment · Step 4 of 5"
-        title="Simulation Setup"
-        description={DESCRIPTION}
-        actions={
+        title="Review and analyse"
+        description="Review the experiment before generating a visual comparison."
+        leading={
           <Button variant="outline" asChild>
             <Link to="/experiments/new/targets">
-              <ArrowLeft className="size-4" />
-              Back to Target Review
+              <ArrowLeft className="size-4" /> Back to targets
             </Link>
           </Button>
         }
       />
-
+      <WizardProgress currentStep={4} />
       <PageBody>
-        <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_280px]">
-          <div className="space-y-6">
-            {/* Experiment summary */}
-            <div className="rounded-lg border border-border bg-surface px-5 py-4">
-              <dl className="grid gap-x-8 gap-y-3 sm:grid-cols-2">
-                <SummaryRow label="Experiment" value={draft.name} />
-                <SummaryRow
-                  label="Device"
-                  value={draft.device === "mobile" ? "Mobile" : "Desktop"}
-                />
-                <SummaryRow label="Persona" value={draft.persona} truncate />
-                <SummaryRow label="Variants" value={String(variants.length)} />
-                <SummaryRow label="Task" value={draft.task} />
-                <SummaryRow label="Success event" value={draft.successEvent} />
-              </dl>
-            </div>
-
-            {/* Reviewed variants */}
-            <div className="rounded-lg border border-border bg-card p-5 shadow-card">
-              <h2 className="text-sm font-semibold text-foreground">Reviewed variants</h2>
-              <div className="mt-3 space-y-2">
-                {variants.map((variant) => {
-                  const target = variant.detectedTarget!;
-                  const tone =
-                    target.status === "confirmed"
-                      ? "success"
-                      : target.status === "adjusted"
-                        ? "info"
-                        : "neutral";
-                  const statusLabel =
-                    target.status === "confirmed"
-                      ? "Confirmed"
-                      : target.status === "adjusted"
-                        ? "Adjusted"
-                        : "Needs review";
-                  return (
-                    <div
-                      key={variant.id}
-                      className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface px-4 py-2.5"
-                    >
-                      <div className="min-w-0">
-                        <span className="text-sm font-medium text-foreground">{variant.name}</span>
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          Target: {target.label}
-                        </span>
-                      </div>
-                      <Pill tone={tone}>{statusLabel}</Pill>
-                    </div>
-                  );
-                })}
+        <div className="max-w-3xl space-y-6">
+          <div ref={animationRef} />
+          <div role="tablist" aria-label="Simulation stages" className="flex gap-2 border-b border-border">
+            <button role="tab" aria-selected={tab === "people"} onClick={() => setTab("people")} className={`px-4 py-3 ${tab === "people" ? "border-b-2 border-primary font-semibold" : "text-muted-foreground"}`}>1. People</button>
+            <button role="tab" aria-selected={tab === "prototype"} onClick={() => setTab("prototype")} className={`px-4 py-3 ${tab === "prototype" ? "border-b-2 border-primary font-semibold" : "text-muted-foreground"}`}>2. Prototype</button>
+          </div>
+          {(running || complete) && tab === activeStage && activeStage === "prototype" && (
+            <section
+              className="rounded-lg border border-border bg-card p-5"
+              role="status"
+              aria-live="polite"
+            >
+              <div className="flex items-center gap-2 font-medium">
+                {running && (
+                  <LoaderCircle className="size-5 animate-spin motion-reduce:animate-none" />
+                )}
+                {complete
+                  ? "Pilot complete"
+                  : phase === "Running independent first-action decisions" ? `${phase}: ${progress.done} of ${progress.total}` : phase}
               </div>
-            </div>
-
-            {/* Pilot size */}
-            <div className="rounded-lg border border-border bg-card p-5 shadow-card">
-              <h2 className="text-sm font-semibold text-foreground">Pilot size</h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                Choose how many synthetic sessions to run for each variant.
+              <p className="mt-2 text-sm text-muted-foreground">
+                {complete
+                  ? "Your comparison is ready to view."
+                  : phase === "Running independent first-action decisions"
+                    ? "View results becomes available when all decisions finish. The animation illustrates analysis; it does not show live agent actions."
+                    : "The animation illustrates analysis; it does not show live agent actions."}
               </p>
-              <RadioGroup
-                value={String(draft.pilotSize)}
-                onValueChange={(val) => setPilotSize(Number(val) as PilotSize)}
-                className="mt-4 grid gap-3 sm:grid-cols-3"
-              >
-                {PILOT_OPTIONS.map((opt) => (
-                  <PilotRadioCard
-                    key={opt.value}
-                    value={String(opt.value)}
-                    label={opt.label}
-                    description={opt.description}
-                    checked={draft.pilotSize === opt.value}
-                  />
-                ))}
-              </RadioGroup>
-              <p className="mt-3 text-xs text-muted-foreground">
-                Synthetic session count reflects simulated behavioural exploration. It is not
-                equivalent to a human research sample size.
-              </p>
-            </div>
-
-            {/* Behaviour diversity */}
-            <div className="rounded-lg border border-border bg-card p-5 shadow-card">
-              <h2 className="text-sm font-semibold text-foreground">Behaviour diversity</h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                Control how varied the synthetic agents' interaction patterns are.
-              </p>
-              <RadioGroup
-                value={draft.behaviourDiversity}
-                onValueChange={(val) => setBehaviourDiversity(val as BehaviourDiversity)}
-                className="mt-4 grid gap-3 sm:grid-cols-3"
-              >
-                {DIVERSITY_OPTIONS.map((opt) => (
-                  <PilotRadioCard
-                    key={opt.value}
-                    value={opt.value}
-                    label={opt.label}
-                    description={opt.description}
-                    checked={draft.behaviourDiversity === opt.value}
-                  />
-                ))}
-              </RadioGroup>
-            </div>
-
-            {/* Synthetic population preview */}
-            <div className="rounded-lg border border-border bg-card p-5 shadow-card">
-              <h2 className="text-sm font-semibold text-foreground">Synthetic population</h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                The pilot will vary behavioural traits around your primary persona.
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {COHORT_PREVIEW[draft.behaviourDiversity].map((cohort) => (
-                  <Pill key={cohort} tone="neutral">
-                    {cohort}
-                  </Pill>
+              {complete && (
+                <Button className="mt-3" asChild>
+                  <Link
+                    to="/experiments/$experimentId"
+                    params={{ experimentId: "prototype-current" }}
+                  >
+                    View results
+                  </Link>
+                </Button>
+              )}
+              <div className="mt-4 grid grid-cols-2 gap-4">
+                {draft.variants.map((v) => (
+                  <div
+                    key={v.id}
+                    className="relative h-48 overflow-hidden rounded-md border bg-surface"
+                  >
+                    <img
+                      src={v.screenshotUrl}
+                      alt={`${v.name} screenshot`}
+                      className="w-full object-cover object-top opacity-80"
+                    />
+                    {running && (
+                      <div
+                        aria-hidden="true"
+                        className="absolute inset-x-0 top-0 h-1 bg-primary/70 shadow-[0_0_20px_4px] shadow-primary/50 animate-[suxl-scan_3s_ease-in-out_infinite_alternate] motion-reduce:animate-none"
+                      />
+                    )}
+                    <span className="absolute bottom-2 left-2 rounded bg-background/90 px-2 py-1 text-xs font-medium">
+                      {v.name}
+                    </span>
+                  </div>
                 ))}
               </div>
+            </section>
+          )}
+          {tab === "prototype" && activeStage === "prototype" && <TraceViewer trace={trace} />}
+          <p className="rounded-md border border-border bg-surface px-4 py-3 text-sm text-muted-foreground">
+            Each synthetic run independently predicts a first action from one screenshot. These
+            predictions are not measured user behaviour.
+          </p>
+          <div className="rounded-lg border border-border bg-card p-5 space-y-2 text-sm">
+            <p>
+              <strong>Experiment:</strong> {draft.name || "—"}
+            </p>
+            <p>
+              <strong>Persona:</strong> {draft.persona || "—"}
+            </p>
+            <p>
+              <strong>Task:</strong> {draft.task || "—"}
+            </p>
+            <p>
+              <strong>Success event:</strong> {draft.successEvent || "—"}
+            </p>
+            {draft.variants.map((v) => (
+              <p key={v.id}>
+                <strong>{v.name}:</strong> {v.detectedTarget?.label || "Target not reviewed"}
+              </p>
+            ))}
+          </div>
+          <section hidden={tab !== "people"} className="rounded-lg border border-border bg-card p-5 space-y-5">
+            <div>
+              <h2 className="font-semibold">People simulator</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Generate 10 fictional people from the persona, varying age, gender, location, shopping
+                experience, browsing habits, attention and priorities. Some people may inspect competing controls or hesitate; the model chooses each first action. The same profiles are run independently
+                against each screenshot. These illustrative profiles do not represent a measured
+                population; the pilot measures first actions, not task completion.
+              </p>
             </div>
-
-            {/* Simulation estimate */}
-            <div className="rounded-lg border border-border bg-surface px-5 py-4">
-              <dl className="grid gap-x-8 gap-y-3 sm:grid-cols-3">
-                <SummaryRow label="Pilot" value={`${pilotLabel} synthetic sessions per variant`} />
-                <SummaryRow label="Variants" value={String(variants.length)} />
-                <SummaryRow
-                  label="Total simulated observations"
-                  value={totalObservations.toLocaleString()}
-                />
-              </dl>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="space-y-2 text-sm font-medium">
+                <span>Behaviour diversity</span>
+                <select
+                  className="block w-full rounded-md border border-input bg-background p-2"
+                  value={diversity}
+                  onChange={(e) => {
+                    setDiversity(e.target.value as "low" | "medium" | "high");
+                    setComplete(false);
+                  }}
+                  disabled={running}
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </label>
             </div>
-
-            {/* Actions */}
-            <div className="flex items-center justify-end gap-3">
-              <Button variant="outline" asChild>
-                <Link to="/experiments/new/targets">
-                  <ArrowLeft className="size-4" />
-                  Back to Target Review
+            <Button variant="outline" onClick={generatePeople} disabled={!ready || running}> {cohortReady ? "Generate new people" : "Generate 10 people"}</Button>
+            {running && activeStage === "people" && (
+              <div className="rounded-lg border border-border bg-surface p-4" role="status" aria-live="polite">
+                <div className="flex items-center gap-4">
+                  <ThinkingOrb state="working" size={64} aria-hidden="true" />
+                  <div>
+                    <div className="font-medium">{phase}</div>
+                    <p className="mt-2 text-sm text-muted-foreground">Generating fictional people from your persona and task.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            {activeStage === "people" && <TraceViewer trace={trace} />}
+            {cohortReady && <details><summary className="cursor-pointer text-sm font-medium">Review 10 generated people</summary><ol className="mt-3 list-decimal space-y-2 pl-5 text-sm">{people.map((person, i) => <li key={i}>{person}</li>)}</ol></details>}
+            <p className="text-sm text-muted-foreground">The pilot runs these 10 people once per variant. Percentages describe this small synthetic sample.</p>
+            {cohortReady && <Button onClick={() => setTab("prototype")}>Continue to prototype</Button>}
+          </section>
+          {!ready && (
+            <p role="alert" className="text-sm text-destructive">
+              Complete setup and add screenshots and reviewed targets for each variant.
+            </p>
+          )}
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
+          <div className="flex gap-3">
+            <Button variant="outline" asChild>
+              <Link to="/experiments/new/targets">
+                <ArrowLeft className="size-4" /> Back to targets
+              </Link>
+            </Button>
+            {running && (
+              <Button variant="outline" onClick={() => controllerRef.current?.abort()}>
+                Cancel analysis
+              </Button>
+            )}
+            {tab === "prototype" && complete && (
+              <Button asChild>
+                <Link
+                  to="/experiments/$experimentId"
+                  params={{ experimentId: "prototype-current" }}
+                >
+                  View results
                 </Link>
               </Button>
-              <Button onClick={handleRun} disabled={isRunning}>
-                {isRunning ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin" />
-                    <span aria-live="polite">{RUN_PHASES[runPhase]}</span>
-                  </>
-                ) : (
-                  <>
-                    <Play className="size-4" />
-                    Run {pilotLabel} Simulations
-                  </>
-                )}
+            )}
+            {tab === "prototype" && !complete && (
+              <Button variant="outline" disabled title="Results are available after all pilot decisions complete">
+                View results
               </Button>
-            </div>
+            )}
+            {tab === "prototype" && <Button onClick={run} disabled={!ready || !cohortReady || running}>
+              <Sparkles className="size-4" />{" "}
+              {running ? "Running pilot…" : complete ? "View saved pilot again" : error && cohortReady ? "Resume screenshot pilot" : "Run screenshot pilot"}
+            </Button>}
           </div>
-
-          {/* Summary panel */}
-          <aside className="hidden xl:block xl:sticky xl:top-8 xl:self-start">
-            <div className="rounded-lg border border-border bg-card p-5 shadow-card">
-              <h3 className="text-sm font-semibold text-foreground">Summary</h3>
-              <dl className="mt-4 space-y-3 text-sm">
-                <AsideRow label="Experiment" value={draft.name} />
-                <AsideRow label="Variants" value={String(variants.length)} />
-                <AsideRow label="Pilot" value={`${pilotLabel} / variant`} />
-                <AsideRow label="Diversity" value={diversityLabel} />
-                <AsideRow label="Total observations" value={totalObservations.toLocaleString()} />
-                <AsideRow label="Next" value="View results" />
-              </dl>
-            </div>
-          </aside>
         </div>
       </PageBody>
     </>
-  );
-}
-
-function PilotRadioCard({
-  value,
-  label,
-  description,
-  checked,
-}: {
-  value: string;
-  label: string;
-  description: string;
-  checked: boolean;
-}) {
-  const inputId = `radio-${value}`;
-  return (
-    <Label
-      htmlFor={inputId}
-      className={cn(
-        "flex cursor-pointer flex-col gap-0.5 rounded-md border px-4 py-3 transition-colors",
-        checked ? "border-primary bg-accent" : "border-border bg-surface hover:border-primary/50",
-      )}
-    >
-      <div className="flex items-center gap-2">
-        <RadioGroupItem id={inputId} value={value} />
-        <span className="text-sm font-semibold text-foreground">{label}</span>
-      </div>
-      <span className="text-xs text-muted-foreground">{description}</span>
-    </Label>
-  );
-}
-
-function SummaryRow({
-  label,
-  value,
-  truncate,
-}: {
-  label: string;
-  value: string;
-  truncate?: boolean;
-}) {
-  return (
-    <div>
-      <dt className="label-caps">{label}</dt>
-      <dd
-        className={cn(
-          "mt-1 text-sm text-foreground",
-          truncate && "line-clamp-2 overflow-hidden text-ellipsis",
-        )}
-      >
-        {value}
-      </dd>
-    </div>
-  );
-}
-
-function AsideRow({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex items-start justify-between gap-4 border-b border-border pb-3 last:border-0 last:pb-0">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="max-w-[60%] text-right font-medium text-foreground">{value}</dd>
-    </div>
   );
 }

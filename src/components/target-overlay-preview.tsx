@@ -110,7 +110,7 @@ export function TargetOverlayPreview({
       <div
         className={cn(
           "pointer-events-none absolute border-2 border-primary",
-          adjustMode ? "bg-primary/15" : "bg-primary/10",
+          adjustMode ? "bg-transparent" : "bg-primary/5",
         )}
         style={{
           left: `${displayBox.x * 100}%`,
@@ -123,11 +123,6 @@ export function TargetOverlayPreview({
           Target
         </span>
       </div>
-      {adjustMode && (
-        <div className="pointer-events-none absolute bottom-2 left-2 rounded bg-foreground/80 px-2 py-1 text-[10px] text-background">
-          Draw a rectangle to set the target area
-        </div>
-      )}
     </div>
   );
 }

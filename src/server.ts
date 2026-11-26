@@ -50,6 +50,31 @@ function isH3SwallowedErrorBody(body: string): boolean {
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      if (new URL(request.url).pathname === "/api/pilot-cache-context") {
+        if (request.method !== "POST") return new Response("Method not allowed", { status: 405 });
+        const { authorizeVisualRequest } = await import("./lib/ai/visual.server");
+        const { getAIProviderConfig } = await import("./lib/ai/provider.server");
+        try {
+          await authorizeVisualRequest(request);
+          const { provider, model } = getAIProviderConfig();
+          return Response.json({ provider, model }, { headers: { "Cache-Control": "no-store" } });
+        } catch { return Response.json({ error: "Unable to identify the configured AI provider." }, { status: 400 }); }
+      }
+      if (new URL(request.url).pathname === "/api/pilot-personas") {
+        if (request.method !== "POST") return new Response("Method not allowed", { status: 405 });
+        const { handlePilotPersonas } = await import("./lib/ai/pilot.server");
+        return handlePilotPersonas(request);
+      }
+      if (new URL(request.url).pathname === "/api/screenshot-pilot") {
+        if (request.method !== "POST") return new Response("Method not allowed", { status: 405 });
+        const { handlePilot } = await import("./lib/ai/pilot.server");
+        return handlePilot(request);
+      }
+      if (new URL(request.url).pathname === "/api/visual-analysis") {
+        if (request.method !== "POST") return new Response("Method not allowed", { status: 405 });
+        const { handleVisualAnalysis } = await import("./lib/ai/visual-handler.server");
+        return handleVisualAnalysis(request);
+      }
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);

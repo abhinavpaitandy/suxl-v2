@@ -1,3 +1,4 @@
+import { isVariantReady } from "./variant-source";
 /**
  * Adapter layer that converts between mock-data's extended Experiment
  * (which carries legacy fields + snapshotResults) and the clean
@@ -19,7 +20,6 @@ import type {
   SnapshotVariantMetrics,
   Variant,
 } from "./types";
-import { isTargetReviewed } from "./types";
 
 // ─── Clean adapter ───────────────────────────────────────────────
 
@@ -63,9 +63,7 @@ export function isPrototypeDraftReady(draft: ExperimentDraft): boolean {
   if (!draft.task.trim()) return false;
   if (!draft.successEvent.trim()) return false;
   if (draft.variants.length < 2) return false;
-  return draft.variants.every(
-    (v) => v.screenshotUrl && v.detectedTarget && isTargetReviewed(v.detectedTarget),
-  );
+  return draft.variants.every((v) => isVariantReady(v));
 }
 
 // ─── Prototype result generation ─────────────────────────────────
@@ -334,6 +332,7 @@ export function buildPrototypeSnapshotExperiment(draft: ExperimentDraft): Experi
     variants: draft.variants.map((v) => {
       const base: Variant = { id: v.id, name: v.name, description: v.description ?? "" };
       if (v.screenshotUrl) base.screenshotUrl = v.screenshotUrl;
+      if (v.pageUrl) base.pageUrl = v.pageUrl;
       if (v.detectedTarget) base.detectedTarget = v.detectedTarget;
       return base;
     }),

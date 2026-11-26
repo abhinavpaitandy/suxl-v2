@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouterState } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   Camera,
@@ -22,8 +23,14 @@ import {
 
 import { AppShell, PageBody, PageHeader } from "@/components/app-shell";
 import { ExperimentStepper } from "@/components/experiment-stepper";
+import { ClickDistributionSummary } from "@/components/simulated-click-heatmap";
+import { TargetOverlayPreview } from "@/components/target-overlay-preview";
+import { ClickHeatmapPreview } from "@/components/click-heatmap-preview";
 import { EvidenceBadge, Pill, StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -40,7 +47,12 @@ import {
 } from "@/lib/snapshot-results";
 import { SNAPSHOT_METRIC_DEFS, type Experiment, type SnapshotExperimentResults } from "@/lib/types";
 import { useDraft } from "@/lib/draft-store";
+import { DEMO_VARIANTS } from "@/lib/demo-variants";
+import demoResult from "@/lib/ai/demo-result.json";
 import { cn } from "@/lib/utils";
+import { exportPeople, exportHeatmap, exportPilotArchive } from "@/lib/pilot-export";
+import { PilotVerification } from "@/components/pilot-verification";
+import { EXAMPLE_UPDATED_EVENT, isCompletedDemo, latestExampleBackup, normalizeCompletedDemo, saveCompletedExample, SAVED_EXAMPLE_KEY, type SavedExample } from "@/lib/saved-example";
 
 export const Route = createFileRoute("/experiments/$experimentId")({
   head: ({ params }) => {
@@ -65,10 +77,430 @@ export const Route = createFileRoute("/experiments/$experimentId")({
   component: ResultsPage,
 });
 
+function ExampleField({
+  label,
+  value,
+  multiline = false,
+}: {
+  label: string;
+  value: string;
+  multiline?: boolean;
+}) {
+  return (
+    <label className="block space-y-2">
+      <Label asChild>
+        <span>{label}</span>
+      </Label>
+      {multiline ? <Textarea disabled value={value} rows={2} /> : <Input disabled value={value} />}
+    </label>
+  );
+}
+
+function ResultsNavigation({
+  readOnly = false,
+  exampleStep,
+}: {
+  readOnly?: boolean;
+  exampleStep?: number;
+}) {
+  return (
+    <div className="border-b border-border bg-card">
+      <div className="mx-auto w-full max-w-7xl px-8 py-3">
+        <ExperimentStepper
+          currentStep={exampleStep ?? 5}
+          experimentId="prototype-current"
+          readOnly={readOnly}
+          {...(exampleStep ? { exampleId: "exp-1042" } : {})}
+        />
+      </div>
+    </div>
+  );
+}
+
 function ResultsPage() {
   const { experimentId } = Route.useParams();
   const isPrototype = experimentId === "prototype-current";
   const draftCtx = useDraft();
+  const [savedExample, setSavedExample] = useState<SavedExample | null>(null);
+  const [saveError, setSaveError] = useState(false);
+  const [exampleMessage, setExampleMessage] = useState("");
+  useEffect(() => {
+    if (experimentId !== "exp-1042") return;
+    const load = () => {
+      try {
+        const stored = localStorage.getItem(SAVED_EXAMPLE_KEY);
+        const saved = stored ? JSON.parse(stored) as SavedExample : null;
+        setSavedExample(saved?.draft && isCompletedDemo(saved.draft) ? saved : null);
+        setSaveError(false);
+      } catch { setSaveError(true); }
+    };
+    load();
+    window.addEventListener("storage", load);
+    window.addEventListener(EXAMPLE_UPDATED_EVENT, load);
+    return () => { window.removeEventListener("storage", load); window.removeEventListener(EXAMPLE_UPDATED_EVENT, load); };
+  }, [experimentId]);
+  const search = useRouterState({ select: (state) => state.location.searchStr });
+  const rawStep = Number(new URLSearchParams(search).get("step"));
+  const exampleStep = Number.isInteger(rawStep) && rawStep >= 1 && rawStep <= 4 ? rawStep : 5;
+
+  if (experimentId === "pilot-verification") return <PilotVerification />;
+
+  if (experimentId === "exp-1042" && exampleStep < 5) {
+    const title = [
+      "",
+      "Experiment setup",
+      "Compare variants",
+      "Review suggested targets",
+      "Analysis",
+    ][exampleStep];
+    return (
+      <AppShell>
+        <PageHeader
+          eyebrow={`Completed example · Step ${exampleStep} of 5`}
+          title={title!}
+          description="PDP page comparison with comparable product detail"
+          leading={
+            <Button variant="outline" asChild>
+              <Link to="/">
+                <ArrowLeft className="size-4" /> All experiments
+              </Link>
+            </Button>
+          }
+        />
+        <ResultsNavigation exampleStep={exampleStep} />
+        <PageBody>
+          {exampleStep === 1 && (
+            <section className="max-w-3xl rounded-lg border bg-card p-6 space-y-5">
+              <ExampleField
+                label="Experiment name"
+                value={savedExample?.draft.name ?? "PDP page comparison with comparable product detail"}
+              />
+              <ExampleField label="Primary persona" value={savedExample?.draft.persona ?? "Not specified"} multiline />
+              <ExampleField
+                label="User task / intent"
+                value={savedExample?.draft.task ?? "Find and add the T-shirt to the shopping bag."}
+                multiline
+              />
+              <ExampleField label="Success event" value={savedExample?.draft.successEvent ?? "Add to bag"} multiline />
+              <ExampleField label="Device context" value={savedExample?.draft.device ?? "Mobile"} />
+              <ExampleField label="Hypothesis (optional)" value={savedExample?.draft.hypothesis || "Not specified"} multiline />
+            </section>
+          )}
+          {exampleStep === 2 && (
+            <div className="grid gap-6 md:grid-cols-2">
+              {(savedExample?.draft.variants ?? DEMO_VARIANTS).map((v) => (
+                <section className="rounded-lg border bg-card p-5" key={v.id}>
+                  <h2 className="mb-4 font-semibold">
+                    {v.name} · {v.id === "v-a" ? "H&M" : "Zara"}
+                  </h2>
+                  <div className="space-y-4">
+                    <ExampleField label="Variant name" value={v.name} />
+                    <ExampleField label="Page URL" value={v.pageUrl ?? "Not specified"} />
+                    <ExampleField label="Description (optional)" value={v.description || "Not specified"} multiline />
+                  </div>
+                  <img
+                    className="mt-4 w-full rounded border"
+                    src={v.screenshotUrl}
+                    alt={`${v.name} screenshot`}
+                  />
+                </section>
+              ))}
+            </div>
+          )}
+          {exampleStep === 3 && (
+            <>
+              <p className="mb-5 text-sm text-muted-foreground">
+                {savedExample ? "These are the reviewed target areas saved with the pilot." : "These are AI suggestions from the original analysis. They have not been confirmed or adjusted."}
+              </p>
+              <div className="grid gap-6 md:grid-cols-2">
+                {DEMO_VARIANTS.map((v) => {
+                  const target = demoResult.targets.find((t) => t.id === v.id);
+                  const reviewed = savedExample?.draft.variants.find((item) => item.id === v.id)?.detectedTarget;
+                  return (
+                    <section className="rounded-lg border bg-card p-5" key={v.id}>
+                      <h2 className="font-semibold">
+                        {v.name} · {v.id === "v-a" ? "H&M" : "Zara"}
+                      </h2>
+                      <div className="my-4 space-y-4">
+                        <ExampleField
+                          label="Suggested target"
+                          value={reviewed?.label ?? target?.label ?? "Not detected"}
+                        />
+                        <ExampleField label="Review status" value={reviewed?.status ?? "Needs review"} />
+                        <ExampleField
+                          label={reviewed ? "Target source" : "AI note"}
+                          value={reviewed ? "Saved from the reviewed pilot" : target?.note ?? "Not provided"}
+                          multiline
+                        />
+                      </div>
+                      {(reviewed?.boundingBox || target?.box) && (
+                        <TargetOverlayPreview
+                          screenshotUrl={v.screenshotUrl}
+                          boundingBox={reviewed?.boundingBox ?? target!.box!}
+                          adjustMode={false}
+                          onBoxChange={() => {}}
+                          onDrawEnd={() => {}}
+                          onDrawCancel={() => {}}
+                          alt={`${v.name} screenshot with suggested target`}
+                        />
+                      )}
+                    </section>
+                  );
+                })}
+              </div>
+            </>
+          )}
+          {exampleStep === 4 && (
+            <section className="max-w-3xl rounded-lg border bg-card p-6 space-y-5">
+              <h2 className="font-semibold">AI visual comparison</h2>
+              <ExampleField
+                label="Task"
+                value={savedExample?.draft.task ?? "Find and add the T-shirt to the shopping bag."}
+                multiline
+              />
+              <ExampleField label="Success event" value={savedExample?.draft.successEvent ?? "Add to bag"} />
+              <ExampleField
+                label="Analysis"
+                value={savedExample ? "Saved synthetic first-action screenshot pilot" : "Cloudflare Workers AI · screenshot visual comparison"}
+              />
+              <ExampleField
+                label="Results"
+                value={savedExample ? `${savedExample.draft.pilotRuns!.length} synthetic decisions · 10 people per variant` : `${demoResult.observations.length} visual observations · ${demoResult.targets.length} unreviewed target suggestions`}
+              />
+              <p className="text-sm text-muted-foreground">
+                {savedExample ? "Model-generated first actions; not observed user behaviour." : "No user simulation or performance measurement was run."}
+              </p>
+              <Button asChild>
+                <Link to="/experiments/$experimentId" params={{ experimentId: "exp-1042" }}>
+                  View results
+                </Link>
+              </Button>
+            </section>
+          )}
+        </PageBody>
+      </AppShell>
+    );
+  }
+
+  if (experimentId === "exp-1042") {
+    return (
+      <AppShell>
+        <PageHeader
+          eyebrow="Completed example · AI visual comparison"
+          title="PDP page comparison with comparable product detail"
+          description="Find and add the T-shirt to the shopping bag."
+          leading={
+            <Button variant="outline" asChild>
+              <Link to="/">
+                <ArrowLeft className="size-4" /> All experiments
+              </Link>
+            </Button>
+          }
+        />
+        <ResultsNavigation exampleStep={5} />
+        <PageBody>
+          {saveError && <p role="alert" className="mb-6 text-sm text-destructive">The browser could not save this example. Check available browser storage.</p>}
+          {savedExample ? (
+            <div className="space-y-6">
+              <p className="text-sm text-muted-foreground">Saved pilot from this browser · {new Date(savedExample.savedAt).toLocaleString()}. Browser data can be cleared; download the pilot archive for a portable copy. Ten synthetic people per variant; model predictions are not measured customer behaviour.</p>
+              <div className="flex flex-wrap gap-3"><Button variant="outline" onClick={() => void exportPeople(savedExample.draft.pilotRuns!).catch(() => window.alert("Could not export the people spreadsheet."))}>Download people (.xlsx)</Button><Button variant="outline" onClick={() => exportPilotArchive(savedExample)}>Download pilot archive (.json)</Button>{latestExampleBackup() && <Button variant="outline" onClick={() => { const backup = latestExampleBackup(); if (backup) exportPilotArchive(backup); }}>Download previous example (.json)</Button>}</div>
+              <section className="rounded-lg border bg-card p-5"><h2 className="font-semibold">Pilot results</h2><ul className="mt-4 space-y-3">{savedExample.draft.visualObservations!.map((item, index) => <li className="text-sm" key={index}><strong>{item.title}:</strong> {item.detail}</li>)}</ul></section>
+              <section className="rounded-lg border bg-card p-5"><h2 className="font-semibold">Original visual comparison</h2><p className="mt-2 text-sm text-muted-foreground">These observations are from the earlier screenshot analysis.</p><ul className="mt-4 space-y-3">{demoResult.observations.map((item) => <li className="text-sm" key={item.title}><strong>{item.title}:</strong> {item.detail}</li>)}</ul></section>
+              <div className="grid gap-6 md:grid-cols-2">{savedExample.draft.variants.map((variant) => {
+                const clicks = savedExample.draft.simulatedClicks!.filter((item) => item.id === variant.id);
+                const runs = savedExample.draft.pilotRuns!.filter((item) => item.variantId === variant.id).sort((a, b) => a.run - b.run);
+                return <section key={variant.id} className="rounded-lg border bg-card p-5">
+                  <h2 className="font-semibold">{variant.name} · {variant.id === "v-a" ? "H&M" : "Zara"}</h2>
+                  <a className="text-sm text-primary underline break-all" href={variant.pageUrl} target="_blank" rel="noreferrer">{variant.pageUrl}</a>
+                  <p className="my-3 text-sm">Reviewed target: {variant.detectedTarget?.label}</p>
+                  <ClickHeatmapPreview id={`saved-example-${variant.id}`} variantName={variant.name} screenshotUrl={variant.screenshotUrl!} target={variant.detectedTarget!.boundingBox} clicks={clicks} runs={runs} />
+                  <ClickDistributionSummary clicks={clicks} target={variant.detectedTarget?.boundingBox} />
+                  <Button variant="outline" className="mt-3" onClick={() => void exportHeatmap(`saved-example-${variant.id}`, `${variant.id}-heatmap.png`).catch((error) => window.alert(error instanceof Error ? error.message : "Could not export heatmap."))}>Download heatmap (.png)</Button>
+                  <details className="mt-4 text-xs text-muted-foreground"><summary className="cursor-pointer font-medium">View individual pilot runs</summary><ol className="mt-2 max-h-64 space-y-2 overflow-auto">{runs.map((run) => <li key={run.run}><strong>Person {run.run + 1}</strong> · {run.profile} · {run.outcome.action === "click" ? `First click (${Math.round(run.outcome.x * 100)}%, ${Math.round(run.outcome.y * 100)}%)` : "No action"} · {run.outcome.reason}</li>)}</ol></details>
+                </section>;
+              })}</div>
+            </div>
+          ) : <>
+          <p className="mb-6 text-sm text-muted-foreground">
+            AI-generated observations from the provided mobile screenshots. Target suggestions are
+            unreviewed and should be checked against the images. This is not measured user
+            behaviour.
+          </p>
+          <section className="rounded-lg border bg-card p-5">
+            <h2 className="font-semibold">Visual comparison</h2>
+            <ul className="mt-4 space-y-3">
+              {demoResult.observations.map((item) => (
+                <li className="text-sm" key={item.title}>
+                  <strong>{item.title}:</strong> {item.detail}
+                </li>
+              ))}
+            </ul>
+          </section>
+          <div className="mt-6 grid gap-6 md:grid-cols-2">
+            {DEMO_VARIANTS.map((variant) => {
+              const target = demoResult.targets.find((item) => item.id === variant.id);
+              return (
+                <section key={variant.id} className="rounded-lg border bg-card p-5">
+                  <h2 className="font-semibold">
+                    {variant.name} · {variant.id === "v-a" ? "H&M" : "Zara"}
+                  </h2>
+                  <a
+                    className="text-sm text-primary underline break-all"
+                    href={variant.pageUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {variant.pageUrl}
+                  </a>
+                  {target && (
+                    <p className="my-3 text-sm">
+                      AI suggested target: {target.label} · review required
+                    </p>
+                  )}
+                  {target?.box ? (
+                    <TargetOverlayPreview
+                      screenshotUrl={variant.screenshotUrl}
+                      boundingBox={target.box}
+                      adjustMode={false}
+                      onBoxChange={() => {}}
+                      onDrawEnd={() => {}}
+                      onDrawCancel={() => {}}
+                      alt={`${variant.name} screenshot with unreviewed suggested target`}
+                    />
+                  ) : (
+                    <img
+                      className="w-full rounded border"
+                      src={variant.screenshotUrl}
+                      alt={`${variant.name} screenshot`}
+                    />
+                  )}
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Unreviewed AI-suggested target area shown. No click heatmap is available: this
+                    analysis did not record clicks.
+                  </p>
+                </section>
+              );
+            })}
+          </div>
+          </>}
+        </PageBody>
+      </AppShell>
+    );
+  }
+
+  if (isPrototype) {
+    const draft = draftCtx.draft;
+    return (
+      <AppShell>
+        <PageHeader
+          eyebrow="AI visual comparison"
+          title={draft.name || "Comparison results"}
+          description={draft.task}
+          leading={
+            <Button variant="outline" asChild>
+              <Link to="/">
+                <ArrowLeft className="size-4" /> All experiments
+              </Link>
+            </Button>
+          }
+        />
+        <ResultsNavigation />
+        <PageBody>
+          {!draft.visualObservations || !draft.pilotRuns?.length ? (
+            <div className="rounded-lg border bg-card p-6">
+              <p>No completed simulation is available. Run the analysis to generate results.</p>
+              <Button asChild className="mt-4">
+                <Link to="/experiments/new/simulation">Back to analysis</Link>
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <p className="text-sm text-muted-foreground">
+                First-action results from independent synthetic screenshot runs. These are model
+                predictions, not real user behaviour or task-completion measurements.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Button variant="outline" onClick={() => void exportPeople(draft.pilotRuns!).catch(() => window.alert("Could not export the people spreadsheet."))}>Download people (.xlsx)</Button>
+                <Button variant="outline" onClick={() => void (async () => {
+                  try {
+                    const normalized = await normalizeCompletedDemo(draft);
+                    if (!normalized) { setExampleMessage("Only a completed H&M/Zara demo using the matching screenshots can be saved to the example."); return; }
+                    saveCompletedExample(normalized);
+                    const saved = JSON.parse(localStorage.getItem(SAVED_EXAMPLE_KEY) || "null") as SavedExample | null;
+                    if (!saved || JSON.stringify(saved.draft) !== JSON.stringify(normalized)) { setExampleMessage("The example was saved, but verification failed. Check the saved example before using it."); return; }
+                    const paths = saved.draft.pilotRuns?.filter((run) => run.outcome.attentionPath?.length).length ?? 0;
+                    setExampleMessage(`Verified: the saved example matches this demo, including ${saved.draft.pilotRuns?.length ?? 0} decisions and ${paths} attention paths. The previous example was backed up.`);
+                  } catch { setExampleMessage("Could not save and verify the example. The existing example was preserved; check browser storage."); }
+                })()}>Save this pilot to example</Button>
+              </div>
+              {exampleMessage && <p role="status" className="text-sm text-muted-foreground">{exampleMessage}</p>}
+              <section className="rounded-lg border bg-card p-5">
+                <h2 className="font-semibold">Visual comparison</h2>
+                <ul className="mt-4 space-y-3">
+                  {draft.visualObservations.map((item, index) => (
+                    <li className="text-sm" key={index}>
+                      <strong>{item.title}:</strong> {item.detail}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+              <div className="grid gap-6 md:grid-cols-2">
+                {draft.variants.map((variant) => (
+                  <section key={variant.id} className="rounded-lg border bg-card p-5">
+                    <h2 className="font-semibold">{variant.name}</h2>
+                    {variant.pageUrl && (
+                      <a
+                        className="text-sm text-primary underline break-all"
+                        href={variant.pageUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {variant.pageUrl}
+                      </a>
+                    )}
+                    {variant.detectedTarget && (
+                      <p className="my-3 text-sm">
+                        Reviewed target: {variant.detectedTarget.label}
+                      </p>
+                    )}
+                    {variant.screenshotUrl && (
+                      <ClickHeatmapPreview id={`pilot-heatmap-${variant.id}`} variantName={variant.name} screenshotUrl={variant.screenshotUrl} target={variant.detectedTarget?.boundingBox} clicks={(draft.simulatedClicks ?? []).filter((c) => c.id === variant.id)} runs={(draft.pilotRuns ?? []).filter((run) => run.variantId === variant.id)} />
+                    )}
+                    <ClickDistributionSummary
+                      clicks={(draft.simulatedClicks ?? []).filter((c) => c.id === variant.id)}
+                      target={variant.detectedTarget?.boundingBox}
+                    />
+                    <Button variant="outline" className="mt-3" onClick={() => void exportHeatmap(`pilot-heatmap-${variant.id}`, `${variant.id}-heatmap.png`).catch((error) => window.alert(error instanceof Error ? error.message : "Could not export heatmap."))}>Download heatmap (.png)</Button>
+                    {draft.pilotRuns && (
+                      <details className="mt-4 text-xs text-muted-foreground">
+                        <summary className="cursor-pointer font-medium">
+                          View individual pilot runs
+                        </summary>
+                        <ol className="mt-2 max-h-64 space-y-2 overflow-auto">
+                          {draft.pilotRuns
+                            .filter((run) => run.variantId === variant.id)
+                            .sort((a, b) => a.run - b.run)
+                            .map((run) => (
+                              <li key={run.run}>
+                                <strong>Run {run.run + 1}</strong> · {run.profile} ·{" "}
+                                {run.outcome.action === "click"
+                                  ? `First click (${Math.round(run.outcome.x * 100)}%, ${Math.round(run.outcome.y * 100)}%)`
+                                  : "No action"}{" "}
+                                · {run.outcome.reason}
+                              </li>
+                            ))}
+                        </ol>
+                      </details>
+                    )}
+                  </section>
+                ))}
+              </div>
+            </div>
+          )}
+        </PageBody>
+      </AppShell>
+    );
+  }
 
   let experiment: Experiment | null = null;
   let prototypeExpired = false;
@@ -166,6 +598,60 @@ function ResultsPage() {
           readOnly={!isPrototype}
           className="mb-6"
         />
+        {isPrototype && (
+          <div className="mb-6 rounded-md border border-border bg-surface px-4 py-3 text-sm text-muted-foreground">
+            Demo results are illustrative mock data. Candidate pages are not fetched or analysed,
+            and the displayed winner is not evidence of performance.
+          </div>
+        )}
+        {isPrototype && experiment.variants.some((variant) => variant.pageUrl) && (
+          <section className="mb-6 rounded-lg border border-border bg-card p-5">
+            <h2 className="text-sm font-semibold">Candidate URLs</h2>
+            <ul className="mt-3 space-y-2">
+              {experiment.variants
+                .filter((variant) => variant.pageUrl)
+                .map((variant) => (
+                  <li key={variant.id} className="text-sm">
+                    <span className="font-medium">{variant.name}: </span>
+                    <a
+                      className="break-all text-primary underline"
+                      href={variant.pageUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {variant.pageUrl}
+                    </a>
+                  </li>
+                ))}
+            </ul>
+          </section>
+        )}
+        {isPrototype && experiment.variants.some((variant) => variant.screenshotUrl) && (
+          <section className="mb-6 rounded-lg border border-border bg-card p-5">
+            <h2 className="text-base font-semibold">Candidate screenshots</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Screenshots uploaded for this experiment.
+            </p>
+            <div className="mt-4 grid items-start gap-5 md:grid-cols-2 xl:grid-cols-3">
+              {experiment.variants.map((variant) => (
+                <div key={variant.id} className="min-w-0">
+                  <h3 className="mb-2 text-sm font-semibold">{variant.name}</h3>
+                  {variant.screenshotUrl ? (
+                    <img
+                      src={variant.screenshotUrl}
+                      alt={`${variant.name} full-page screenshot`}
+                      className="block h-auto w-full rounded-md border border-border"
+                    />
+                  ) : (
+                    <p className="rounded-md border border-border bg-surface p-4 text-sm text-muted-foreground">
+                      No screenshot uploaded.
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
         {isComplete ? (
           <SnapshotResults experiment={experiment} results={experiment.results!} />
         ) : (

@@ -1,8 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 
 import { PageBody, PageHeader } from "@/components/app-shell";
+import { WizardProgress } from "@/components/experiment-stepper";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,6 +45,11 @@ function SetupPage() {
   const [errors, setErrors] = useState<Partial<Record<FieldKey, string>>>({});
   const firstInvalidRef = useRef<HTMLElement | null>(null);
 
+  useEffect(() => {
+    if (!draft.name.trim())
+      updateExperimentDetails({ name: "PDP page comparison with comparable product detail" });
+  }, []); // Seed an existing empty draft once when the setup page opens.
+
   function validate(): boolean {
     const next: Partial<Record<FieldKey, string>> = {};
     (["name", "persona", "task", "successEvent"] as const).forEach((key) => {
@@ -84,7 +90,7 @@ function SetupPage() {
         eyebrow="New Experiment · Step 1 of 5"
         title="Experiment Setup"
         description={DESCRIPTION}
-        actions={
+        leading={
           <Button variant="outline" asChild>
             <Link to="/">
               <ArrowLeft className="size-4" />
@@ -93,6 +99,7 @@ function SetupPage() {
           </Button>
         }
       />
+      <WizardProgress currentStep={1} />
 
       <PageBody>
         <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_280px]">
@@ -105,7 +112,7 @@ function SetupPage() {
                   Snapshot / Decision Test
                 </div>
                 <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                  Tests one screen and one decision point across competing UI variants.
+                  Compare one decision point across competing page URLs or screenshots.
                 </p>
               </div>
             </div>
@@ -122,7 +129,7 @@ function SetupPage() {
                       updateExperimentDetails({ name: e.target.value });
                       clearError("name");
                     }}
-                    placeholder="e.g. Delivery option discoverability"
+                    placeholder="e.g. T-shirt product page comparison"
                     aria-invalid={!!errors.name}
                     aria-describedby={errors.name ? "error-name" : "help-name"}
                   />
@@ -168,9 +175,21 @@ function SetupPage() {
                       updateExperimentDetails({ task: e.target.value });
                       clearError("task");
                     }}
-                    placeholder="Choose the fastest available delivery option."
+                    placeholder="Find and add the T-shirt to the shopping bag."
                     aria-invalid={!!errors.task}
                     aria-describedby={errors.task ? "error-task" : "help-task"}
+                  />
+                  <SuggestionTags
+                    label="Suggested tasks"
+                    options={[
+                      "Find and add the T-shirt to the shopping bag.",
+                      "Find the price of the T-shirt.",
+                      "Find the product description and material details.",
+                    ]}
+                    onSelect={(value) => {
+                      updateExperimentDetails({ task: value });
+                      clearError("task");
+                    }}
                   />
                   <FieldHelp id="help-task">
                     Describe one clear goal the user should accomplish from this screen.
@@ -193,11 +212,23 @@ function SetupPage() {
                       updateExperimentDetails({ successEvent: e.target.value });
                       clearError("successEvent");
                     }}
-                    placeholder="Express Delivery is selected."
+                    placeholder="Select the Add to bag or Add button."
                     aria-invalid={!!errors.successEvent}
                     aria-describedby={
                       errors.successEvent ? "error-successEvent" : "help-successEvent"
                     }
+                  />
+                  <SuggestionTags
+                    label="Suggested success events"
+                    options={[
+                      "Select the Add to bag or Add button.",
+                      "Identify the displayed product price.",
+                      "Open or locate the product description and material details.",
+                    ]}
+                    onSelect={(value) => {
+                      updateExperimentDetails({ successEvent: value });
+                      clearError("successEvent");
+                    }}
                   />
                   <FieldHelp id="help-successEvent">
                     Describe the observable action that counts as success.
@@ -217,12 +248,12 @@ function SetupPage() {
                       {
                         value: "mobile" as DeviceType,
                         label: "Mobile",
-                        description: "Evaluate the screenshot in a mobile interaction context.",
+                        description: "Use a mobile interaction context.",
                       },
                       {
                         value: "desktop" as DeviceType,
                         label: "Desktop",
-                        description: "Evaluate the screenshot in a desktop interaction context.",
+                        description: "Use a desktop interaction context.",
                       },
                     ]}
                   />
@@ -235,8 +266,17 @@ function SetupPage() {
                     rows={2}
                     value={draft.hypothesis ?? ""}
                     onChange={(e) => updateExperimentDetails({ hypothesis: e.target.value })}
-                    placeholder="Highlighting the fastest option will increase correct first-action selection."
+                    placeholder="A prominent add-to-bag button will be easier to find."
                     aria-describedby="help-hypothesis"
+                  />
+                  <SuggestionTags
+                    label="Suggested hypotheses"
+                    options={[
+                      "A prominent add-to-bag button will be easier to find.",
+                      "Clearer price placement will make the product price easier to find.",
+                      "Visible product details will make it easier to find information about the T-shirt.",
+                    ]}
+                    onSelect={(value) => updateExperimentDetails({ hypothesis: value })}
                   />
                   <FieldHelp id="help-hypothesis">
                     Useful for documenting what you expect to learn. It does not determine the
@@ -272,7 +312,7 @@ function SetupPage() {
                   label="Device"
                   value={draft.device === "mobile" ? "Mobile" : "Desktop"}
                 />
-                <SummaryRow label="Next" value="Upload 2–3 variants" />
+                <SummaryRow label="Next" value="Add 2–3 variants" />
               </dl>
             </div>
           </aside>
@@ -318,6 +358,34 @@ function FieldHelp({ id, children }: { id: string; children: React.ReactNode }) 
     <p id={id} className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
       {children}
     </p>
+  );
+}
+
+function SuggestionTags({
+  label,
+  options,
+  onSelect,
+}: {
+  label: string;
+  options: string[];
+  onSelect: (value: string) => void;
+}) {
+  return (
+    <div className="mt-2" role="group" aria-label={label}>
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <div className="mt-1.5 flex flex-wrap gap-2">
+        {options.map((option) => (
+          <button
+            key={option}
+            type="button"
+            onClick={() => onSelect(option)}
+            className="rounded-full border border-border bg-surface px-3 py-1.5 text-left text-xs text-foreground transition-colors hover:border-primary hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 

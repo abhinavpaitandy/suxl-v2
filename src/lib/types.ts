@@ -54,7 +54,10 @@ export interface DetectedTarget {
   label: string;
   boundingBox: BoundingBox;
   /** 0–1 confidence score from the detection model */
-  confidence: number;
+  confidence?: number;
+  /** AI estimates should be reviewed; no numeric confidence is implied. */
+  source?: "ai" | "mock";
+  note?: string;
   /**
    * Single source of truth for target review state.
    * Do not maintain a separate boolean — use `isTargetReviewed()` to check.
@@ -74,6 +77,7 @@ export interface Variant {
   name: string;
   description?: string;
   screenshotUrl?: string;
+  pageUrl?: string;
   detectedTarget?: DetectedTarget;
 }
 
@@ -82,6 +86,7 @@ export interface DraftVariant {
   name: string;
   description?: string | undefined;
   screenshotUrl?: string | undefined;
+  pageUrl?: string | undefined;
   detectedTarget?: DetectedTarget | undefined;
 }
 
@@ -232,6 +237,9 @@ export interface ExperimentDraft {
   hypothesis?: string;
   device: DeviceType;
   variants: DraftVariant[];
+  visualObservations?: Array<{ title: string; detail: string }>;
+  simulatedClicks?: Array<{ id: string; persona: string; x: number; y: number }>;
+  pilotRuns?: import("./ai/pilot-client").PilotRun[];
   pilotSize: PilotSize;
   behaviourDiversity: BehaviourDiversity;
 }

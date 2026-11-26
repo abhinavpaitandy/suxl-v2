@@ -10,6 +10,7 @@ export interface ExperimentStepperProps {
   className?: string;
   /** When true, completed steps are visual only and do not navigate. */
   readOnly?: boolean;
+  exampleId?: string;
 }
 
 const STEPS = [
@@ -25,6 +26,7 @@ export function ExperimentStepper({
   experimentId,
   className,
   readOnly = false,
+  exampleId,
 }: ExperimentStepperProps) {
   return (
     <nav
@@ -77,7 +79,17 @@ export function ExperimentStepper({
 
           let linkElement: React.ReactNode;
 
-          if (readOnly) {
+          if (exampleId) {
+            linkElement = (
+              <a
+                href={`/experiments/${encodeURIComponent(exampleId)}${stepNum === 5 ? "" : `?step=${stepNum}`}`}
+                className="flex items-center gap-2 transition-opacity hover:opacity-80"
+                aria-label={ariaLabel}
+              >
+                {inner}
+              </a>
+            );
+          } else if (readOnly) {
             linkElement = (
               <div className="flex items-center gap-2" aria-label={ariaLabel}>
                 {inner}
@@ -130,5 +142,15 @@ export function ExperimentStepper({
         })}
       </ol>
     </nav>
+  );
+}
+
+export function WizardProgress({ currentStep }: { currentStep: number }) {
+  return (
+    <div className="border-b border-border bg-card">
+      <div className="mx-auto w-full max-w-7xl px-8 py-3">
+        <ExperimentStepper currentStep={currentStep} />
+      </div>
+    </div>
   );
 }

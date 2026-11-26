@@ -1,0 +1,44 @@
+{
+  "observations": [
+    {
+      "title": "Call to Action (CTA) Prominence",
+      "detail": "H&M uses a single, high-contrast, full-width 'ADD TO BAG' button anchored to the bottom, making the primary task very prominent. Zara splits the bottom area between an 'ADD' button and an 'Apple Pay' quick-action button, which distributes the visual weight."
+    },
+    {
+      "title": "Product Information Density",
+      "detail": "Zara displays immediate textual information such as price, product name, and a brief description below the product image. H&M focuses heavily on the visual aspect of the product, with text-based details less visible in this view."
+    },
+    {
+      "title": "Header Utility",
+      "detail": "H&M's header contains more visible utility icons (search, profile, favorites, bag) compared to Zara's more minimalist approach with only three icons."
+    },
+    {
+      "title": "Visual Hierarchy",
+      "detail": "H&M's layout creates a strong vertical flow from the product image directly to the large action button. Zara provides a more information-dense layout that requires scanning text before reaching the action buttons."
+    }
+  ],
+  "targets": [
+    {
+      "id": "v-a",
+      "label": "ADD TO BAG",
+      "box": {
+        "x": 0.04,
+        "y": 0.91,
+        "width": 0.92,
+        "height": 0.07
+      },
+      "note": "Primary full-width button for adding the item to the bag."
+    },
+    {
+      "id": "v-b",
+      "label": "ADD",
+      "box": {
+        "x": 0.05,
+        "y": 0.94,
+        "width": 0.43,
+        "height": 0.03
+      },
+      "note": "Secondary button in a split-action bottom bar for adding the item."
+    }
+  ]
+}

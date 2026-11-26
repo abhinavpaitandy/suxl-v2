@@ -1,0 +1,402 @@
+{
+  "savedAt": "2026-11-24T11:25:17.214Z",
+  "draft": {
+    "name": "PDP page comparison with comparable product detail",
+    "persona": "Fashion Aspirer: a highly fashion-engaged shopper who cares about personal style and trends, finds inspiration in everyday life and culture, and shops across brands and channels. They engage directly with fashion brands through social media and websites, and look for inspiring, creative fashion that fits their style. Based on the 2023 US Fashion Aspirer survey; adapt for the market and experiment.",
+    "task": "Find and add the T-shirt to the shopping bag.",
+    "successEvent": "Select the Add to bag or Add button.",
+    "device": "mobile",
+    "variants": [
+      {
+        "id": "v-a",
+        "name": "Variant A",
+        "description": "",
+        "pageUrl": "https://www2.hm.com/en_gb/productpage.0570002002.html",
+        "screenshotUrl": "/demo/hm-product-mobile.png?v=2",
+        "detectedTarget": {
+          "label": "ADD TO BAG",
+          "boundingBox": {
+            "x": 0.04,
+            "y": 0.91,
+            "width": 0.92,
+            "height": 0.07
+          },
+          "status": "confirmed"
+        }
+      },
+      {
+        "id": "v-b",
+        "name": "Variant B",
+        "description": "",
+        "pageUrl": "https://www.zara.com/uk/en/basic-slim-fit-t-shirt--01-p05584401.html?v1=614350112",
+        "screenshotUrl": "/demo/zara-product-mobile.png?v=2",
+        "detectedTarget": {
+          "label": "ADD",
+          "boundingBox": {
+            "x": 0.05,
+            "y": 0.94,
+            "width": 0.43,
+            "height": 0.05
+          },
+          "status": "confirmed"
+        }
+      }
+    ],
+    "pilotSize": 500,
+    "behaviourDiversity": "medium",
+    "pilotRuns": [
+      {
+        "variantId": "v-a",
+        "profile": "Age 18–24; gender man; location urban US; moderate online shopping experience; scans before deciding; prioritises convenience; moderately patient. Fashion-focused shopper seeking trend-right T-shirts via brand social feeds and sites. Scans options quickly, values easy checkout, moderate patience, shops across channels for style inspiration.",
+        "run": 0,
+        "outcome": {
+          "action": "click",
+          "x": 0.5,
+          "y": 0.95,
+          "reason": "The ADD TO BAG button is clearly visible at the bottom of the product page, matching the goal to add the T-shirt to the shopping bag."
+        }
+      },
+      {
+        "variantId": "v-b",
+        "profile": "Age 18–24; gender man; location urban US; moderate online shopping experience; scans before deciding; prioritises convenience; moderately patient. Fashion-focused shopper seeking trend-right T-shirts via brand social feeds and sites. Scans options quickly, values easy checkout, moderate patience, shops across channels for style inspiration.",
+        "run": 0,
+        "outcome": {
+          "action": "click",
+          "x": 0.267,
+          "y": 0.9610000000000001,
+          "reason": "Click the ADD button to add the T-shirt to the shopping bag."
+        }
+      },
+      {
+        "variantId": "v-b",
+        "profile": "Age 18–24; gender man; location urban US; experienced online shopper; reads product details carefully; prioritises convenience; in a hurry. Experienced fashion shopper hunting a stylish T-shirt on brand websites. Reads fabric and fit details fast, prioritises one-click convenience, in a hurry but trend-driven.",
+        "run": 1,
+        "outcome": {
+          "action": "click",
+          "x": 0.267,
+          "y": 0.9610000000000001,
+          "reason": "Add the T-shirt to the shopping bag."
+        }
+      },
+      {
+        "variantId": "v-a",
+        "profile": "Age 18–24; gender man; location urban US; experienced online shopper; reads product details carefully; prioritises convenience; in a hurry. Experienced fashion shopper hunting a stylish T-shirt on brand websites. Reads fabric and fit details fast, prioritises one-click convenience, in a hurry but trend-driven.",
+        "run": 1,
+        "outcome": {
+          "action": "click",
+          "x": 0.5,
+          "y": 0.95,
+          "reason": "Visible ADD TO BAG button enables convenient one-click addition matching the hurried, convenience-prioritizing persona."
+        }
+      },
+      {
+        "variantId": "v-a",
+        "profile": "Age 55–64; gender woman; location urban US; experienced online shopper; scans before deciding; balances price and style; moderately patient. Scans style and price quickly, adds a T-shirt to the bag when it fits the look. Shops brand sites and social feeds, comfortable online, moderate patience.",
+        "run": 2,
+        "outcome": {
+          "action": "click",
+          "x": 0.5,
+          "y": 0.95,
+          "reason": "ADD TO BAG button is visible to add the T-shirt"
+        }
+      },
+      {
+        "variantId": "v-a",
+        "profile": "Age 55–64; gender man; location urban US; moderate online shopping experience; reads product details carefully; balances price and style; moderately patient. Reads fit, fabric, and care details before buying, weighs price against style, then adds a T-shirt to the bag. Browses brand sites and social, moderate patience.",
+        "run": 3,
+        "outcome": {
+          "action": "click",
+          "x": 0.5,
+          "y": 0.95,
+          "reason": "Clicking the ADD TO BAG button to complete the task of adding the T-shirt to the shopping bag"
+        }
+      },
+      {
+        "variantId": "v-b",
+        "profile": "Age 55–64; gender woman; location urban US; experienced online shopper; scans before deciding; balances price and style; moderately patient. Scans style and price quickly, adds a T-shirt to the bag when it fits the look. Shops brand sites and social feeds, comfortable online, moderate patience.",
+        "run": 2,
+        "outcome": {
+          "action": "click",
+          "x": 0.265,
+          "y": 0.4615,
+          "reason": "Add the BASIC SLIM FIT T-SHIRT to the shopping bag as requested in the task"
+        }
+      },
+      {
+        "variantId": "v-a",
+        "profile": "Age 65+; gender gender not specified; location urban UK; experienced online shopper; scans before deciding; balances price and style; in a hurry. Style-led shopper hunting a T-shirt fast. Scans brand sites and social feeds for trend-right picks, weighs price vs design, adds to bag. Prioritises efficient checkout and creative inspiration.",
+        "run": 4,
+        "outcome": {
+          "action": "click",
+          "x": 0.5,
+          "y": 0.95,
+          "reason": "The ADD TO BAG button is visible at the bottom of the screen, which directly accomplishes the task of adding the T-shirt to the shopping bag."
+        }
+      },
+      {
+        "variantId": "v-b",
+        "profile": "Age 55–64; gender man; location urban US; moderate online shopping experience; reads product details carefully; balances price and style; moderately patient. Reads fit, fabric, and care details before buying, weighs price against style, then adds a T-shirt to the bag. Browses brand sites and social, moderate patience.",
+        "run": 3,
+        "outcome": {
+          "action": "click",
+          "x": 0.265,
+          "y": 0.96,
+          "reason": "The product details are visible and the ADD button is present to add the T-shirt to the bag"
+        }
+      },
+      {
+        "variantId": "v-a",
+        "profile": "Age 18–24; gender man; location urban UK; moderate online shopping experience; scans before deciding; prioritises convenience; in a hurry. Trend-aware shopper grabbing a T-shirt quickly. Scans sites and social feeds for stylish options, prioritises easy checkout, adds to bag. Seeks creative everyday inspiration with minimal friction.",
+        "run": 5,
+        "outcome": {
+          "action": "click",
+          "x": 0.5,
+          "y": 0.95,
+          "reason": "Clicking the visible \"ADD TO BAG\" button is the most direct way to complete the task quickly and with minimal friction, matching the persona's priority for convenience and speed."
+        }
+      },
+      {
+        "variantId": "v-b",
+        "profile": "Age 65+; gender gender not specified; location urban UK; experienced online shopper; scans before deciding; balances price and style; in a hurry. Style-led shopper hunting a T-shirt fast. Scans brand sites and social feeds for trend-right picks, weighs price vs design, adds to bag. Prioritises efficient checkout and creative inspiration.",
+        "run": 4,
+        "outcome": {
+          "action": "click",
+          "x": 0.27,
+          "y": 0.96,
+          "reason": "Click the ADD button to place the T-shirt in the bag quickly."
+        }
+      },
+      {
+        "variantId": "v-a",
+        "profile": "Age 18–24; gender woman; location urban Germany; moderate online shopping experience; scans before deciding; balances price and style; moderately patient. Trend-led shopper seeking a stylish T-shirt; browses brand sites and social feeds; compares prices across a few stores before adding; accepts standard checkout; willing to wait for free delivery.",
+        "run": 6,
+        "outcome": {
+          "action": "click",
+          "x": 0.5,
+          "y": 0.95,
+          "reason": "Click the 'ADD TO BAG' button to add the white T-shirt to the shopping bag."
+        }
+      },
+      {
+        "variantId": "v-b",
+        "profile": "Age 18–24; gender man; location urban UK; moderate online shopping experience; scans before deciding; prioritises convenience; in a hurry. Trend-aware shopper grabbing a T-shirt quickly. Scans sites and social feeds for stylish options, prioritises easy checkout, adds to bag. Seeks creative everyday inspiration with minimal friction.",
+        "run": 5,
+        "outcome": {
+          "action": "click",
+          "x": 0.26,
+          "y": 0.96,
+          "reason": "Click ADD button to add T-shirt to bag with minimal friction"
+        }
+      },
+      {
+        "variantId": "v-a",
+        "profile": "Age 25–34; gender gender not specified; location urban Germany; experienced online shopper; reads product details carefully; balances price and style; in a hurry. Style-led shopper hunting a trendy T-shirt; checks brand sites and social posts for fit; reads sizing and fabric quickly; balances price with look; prefers quick checkout; needs rapid delivery.",
+        "run": 7,
+        "outcome": {
+          "action": "click",
+          "x": 0.5,
+          "y": 0.95,
+          "reason": "Click the visible ADD TO BAG button to add the T-shirt to the shopping bag"
+        }
+      },
+      {
+        "variantId": "v-b",
+        "profile": "Age 18–24; gender woman; location urban Germany; moderate online shopping experience; scans before deciding; balances price and style; moderately patient. Trend-led shopper seeking a stylish T-shirt; browses brand sites and social feeds; compares prices across a few stores before adding; accepts standard checkout; willing to wait for free delivery.",
+        "run": 6,
+        "outcome": {
+          "action": "click",
+          "x": 0.2614,
+          "y": 0.9616,
+          "reason": "Click the ADD button to add the T-shirt to the shopping bag."
+        }
+      },
+      {
+        "variantId": "v-a",
+        "profile": "Age 55–64; gender woman; location rural Sweden; experienced online shopper; scans before deciding; prioritises convenience; moderately patient. Experienced shopper scanning for convenience. Follows fashion brands on social media for style ideas. Wants creative T-shirt matching personal aesthetic, checks briefly, adds to bag with little hassle.",
+        "run": 8,
+        "outcome": {
+          "action": "click",
+          "x": 0.5,
+          "y": 0.95,
+          "reason": "Click the ADD TO BAG button to add the visible white T-shirt to the shopping bag"
+        }
+      },
+      {
+        "variantId": "v-b",
+        "profile": "Age 25–34; gender gender not specified; location urban Germany; experienced online shopper; reads product details carefully; balances price and style; in a hurry. Style-led shopper hunting a trendy T-shirt; checks brand sites and social posts for fit; reads sizing and fabric quickly; balances price with look; prefers quick checkout; needs rapid delivery.",
+        "run": 7,
+        "outcome": {
+          "action": "click",
+          "x": 0.26,
+          "y": 0.96,
+          "reason": "Click ADD button to add T-shirt to shopping bag quickly"
+        }
+      },
+      {
+        "variantId": "v-a",
+        "profile": "Age 45–54; gender man; location urban Sweden; moderate online shopping experience; reads product details carefully; prioritises convenience; in a hurry. Moderate online experience, reads details carefully but rushes. Follows fashion brands for trend inspiration. Wants inspiring T-shirt fitting personal style, checks fit fast, adds to bag, easy checkout.",
+        "run": 9,
+        "outcome": {
+          "action": "click",
+          "x": 0.5,
+          "y": 0.95,
+          "reason": "Click the visible ADD TO BAG button to add the white T-shirt quickly."
+        }
+      },
+      {
+        "variantId": "v-b",
+        "profile": "Age 45–54; gender man; location urban Sweden; moderate online shopping experience; reads product details carefully; prioritises convenience; in a hurry. Moderate online experience, reads details carefully but rushes. Follows fashion brands for trend inspiration. Wants inspiring T-shirt fitting personal style, checks fit fast, adds to bag, easy checkout.",
+        "run": 9,
+        "outcome": {
+          "action": "click",
+          "x": 0.27,
+          "y": 0.9610000000000001,
+          "reason": "Click the ADD button to add the T-shirt to the shopping bag"
+        }
+      },
+      {
+        "variantId": "v-b",
+        "profile": "Age 55–64; gender woman; location rural Sweden; experienced online shopper; scans before deciding; prioritises convenience; moderately patient. Experienced shopper scanning for convenience. Follows fashion brands on social media for style ideas. Wants creative T-shirt matching personal aesthetic, checks briefly, adds to bag with little hassle.",
+        "run": 8,
+        "outcome": {
+          "action": "click",
+          "x": 0.27,
+          "y": 0.9610000000000001,
+          "reason": "Click the ADD button to add the T-shirt to the shopping bag"
+        }
+      }
+    ],
+    "simulatedClicks": [
+      {
+        "id": "v-a",
+        "persona": "Age 18–24; gender man; location urban US; moderate online shopping experience; scans before deciding; prioritises convenience; moderately patient. Fashion-focused shopper seeking trend-right T-shirts via brand social feeds and sites. Scans options quickly, values easy checkout, moderate patience, shops across channels for style inspiration.",
+        "x": 0.5,
+        "y": 0.95
+      },
+      {
+        "id": "v-b",
+        "persona": "Age 18–24; gender man; location urban US; moderate online shopping experience; scans before deciding; prioritises convenience; moderately patient. Fashion-focused shopper seeking trend-right T-shirts via brand social feeds and sites. Scans options quickly, values easy checkout, moderate patience, shops across channels for style inspiration.",
+        "x": 0.267,
+        "y": 0.9610000000000001
+      },
+      {
+        "id": "v-b",
+        "persona": "Age 18–24; gender man; location urban US; experienced online shopper; reads product details carefully; prioritises convenience; in a hurry. Experienced fashion shopper hunting a stylish T-shirt on brand websites. Reads fabric and fit details fast, prioritises one-click convenience, in a hurry but trend-driven.",
+        "x": 0.267,
+        "y": 0.9610000000000001
+      },
+      {
+        "id": "v-a",
+        "persona": "Age 18–24; gender man; location urban US; experienced online shopper; reads product details carefully; prioritises convenience; in a hurry. Experienced fashion shopper hunting a stylish T-shirt on brand websites. Reads fabric and fit details fast, prioritises one-click convenience, in a hurry but trend-driven.",
+        "x": 0.5,
+        "y": 0.95
+      },
+      {
+        "id": "v-a",
+        "persona": "Age 55–64; gender woman; location urban US; experienced online shopper; scans before deciding; balances price and style; moderately patient. Scans style and price quickly, adds a T-shirt to the bag when it fits the look. Shops brand sites and social feeds, comfortable online, moderate patience.",
+        "x": 0.5,
+        "y": 0.95
+      },
+      {
+        "id": "v-a",
+        "persona": "Age 55–64; gender man; location urban US; moderate online shopping experience; reads product details carefully; balances price and style; moderately patient. Reads fit, fabric, and care details before buying, weighs price against style, then adds a T-shirt to the bag. Browses brand sites and social, moderate patience.",
+        "x": 0.5,
+        "y": 0.95
+      },
+      {
+        "id": "v-b",
+        "persona": "Age 55–64; gender woman; location urban US; experienced online shopper; scans before deciding; balances price and style; moderately patient. Scans style and price quickly, adds a T-shirt to the bag when it fits the look. Shops brand sites and social feeds, comfortable online, moderate patience.",
+        "x": 0.265,
+        "y": 0.4615
+      },
+      {
+        "id": "v-a",
+        "persona": "Age 65+; gender gender not specified; location urban UK; experienced online shopper; scans before deciding; balances price and style; in a hurry. Style-led shopper hunting a T-shirt fast. Scans brand sites and social feeds for trend-right picks, weighs price vs design, adds to bag. Prioritises efficient checkout and creative inspiration.",
+        "x": 0.5,
+        "y": 0.95
+      },
+      {
+        "id": "v-b",
+        "persona": "Age 55–64; gender man; location urban US; moderate online shopping experience; reads product details carefully; balances price and style; moderately patient. Reads fit, fabric, and care details before buying, weighs price against style, then adds a T-shirt to the bag. Browses brand sites and social, moderate patience.",
+        "x": 0.265,
+        "y": 0.96
+      },
+      {
+        "id": "v-a",
+        "persona": "Age 18–24; gender man; location urban UK; moderate online shopping experience; scans before deciding; prioritises convenience; in a hurry. Trend-aware shopper grabbing a T-shirt quickly. Scans sites and social feeds for stylish options, prioritises easy checkout, adds to bag. Seeks creative everyday inspiration with minimal friction.",
+        "x": 0.5,
+        "y": 0.95
+      },
+      {
+        "id": "v-b",
+        "persona": "Age 65+; gender gender not specified; location urban UK; experienced online shopper; scans before deciding; balances price and style; in a hurry. Style-led shopper hunting a T-shirt fast. Scans brand sites and social feeds for trend-right picks, weighs price vs design, adds to bag. Prioritises efficient checkout and creative inspiration.",
+        "x": 0.27,
+        "y": 0.96
+      },
+      {
+        "id": "v-a",
+        "persona": "Age 18–24; gender woman; location urban Germany; moderate online shopping experience; scans before deciding; balances price and style; moderately patient. Trend-led shopper seeking a stylish T-shirt; browses brand sites and social feeds; compares prices across a few stores before adding; accepts standard checkout; willing to wait for free delivery.",
+        "x": 0.5,
+        "y": 0.95
+      },
+      {
+        "id": "v-b",
+        "persona": "Age 18–24; gender man; location urban UK; moderate online shopping experience; scans before deciding; prioritises convenience; in a hurry. Trend-aware shopper grabbing a T-shirt quickly. Scans sites and social feeds for stylish options, prioritises easy checkout, adds to bag. Seeks creative everyday inspiration with minimal friction.",
+        "x": 0.26,
+        "y": 0.96
+      },
+      {
+        "id": "v-a",
+        "persona": "Age 25–34; gender gender not specified; location urban Germany; experienced online shopper; reads product details carefully; balances price and style; in a hurry. Style-led shopper hunting a trendy T-shirt; checks brand sites and social posts for fit; reads sizing and fabric quickly; balances price with look; prefers quick checkout; needs rapid delivery.",
+        "x": 0.5,
+        "y": 0.95
+      },
+      {
+        "id": "v-b",
+        "persona": "Age 18–24; gender woman; location urban Germany; moderate online shopping experience; scans before deciding; balances price and style; moderately patient. Trend-led shopper seeking a stylish T-shirt; browses brand sites and social feeds; compares prices across a few stores before adding; accepts standard checkout; willing to wait for free delivery.",
+        "x": 0.2614,
+        "y": 0.9616
+      },
+      {
+        "id": "v-a",
+        "persona": "Age 55–64; gender woman; location rural Sweden; experienced online shopper; scans before deciding; prioritises convenience; moderately patient. Experienced shopper scanning for convenience. Follows fashion brands on social media for style ideas. Wants creative T-shirt matching personal aesthetic, checks briefly, adds to bag with little hassle.",
+        "x": 0.5,
+        "y": 0.95
+      },
+      {
+        "id": "v-b",
+        "persona": "Age 25–34; gender gender not specified; location urban Germany; experienced online shopper; reads product details carefully; balances price and style; in a hurry. Style-led shopper hunting a trendy T-shirt; checks brand sites and social posts for fit; reads sizing and fabric quickly; balances price with look; prefers quick checkout; needs rapid delivery.",
+        "x": 0.26,
+        "y": 0.96
+      },
+      {
+        "id": "v-a",
+        "persona": "Age 45–54; gender man; location urban Sweden; moderate online shopping experience; reads product details carefully; prioritises convenience; in a hurry. Moderate online experience, reads details carefully but rushes. Follows fashion brands for trend inspiration. Wants inspiring T-shirt fitting personal style, checks fit fast, adds to bag, easy checkout.",
+        "x": 0.5,
+        "y": 0.95
+      },
+      {
+        "id": "v-b",
+        "persona": "Age 45–54; gender man; location urban Sweden; moderate online shopping experience; reads product details carefully; prioritises convenience; in a hurry. Moderate online experience, reads details carefully but rushes. Follows fashion brands for trend inspiration. Wants inspiring T-shirt fitting personal style, checks fit fast, adds to bag, easy checkout.",
+        "x": 0.27,
+        "y": 0.9610000000000001
+      },
+      {
+        "id": "v-b",
+        "persona": "Age 55–64; gender woman; location rural Sweden; experienced online shopper; scans before deciding; prioritises convenience; moderately patient. Experienced shopper scanning for convenience. Follows fashion brands on social media for style ideas. Wants creative T-shirt matching personal aesthetic, checks briefly, adds to bag with little hassle.",
+        "x": 0.27,
+        "y": 0.9610000000000001
+      }
+    ],
+    "visualObservations": [
+      {
+        "title": "Variant A",
+        "detail": "10 of 10 synthetic runs produced a first click; 0 took no action."
+      },
+      {
+        "title": "Variant B",
+        "detail": "10 of 10 synthetic runs produced a first click; 0 took no action."
+      }
+    ]
+  }
+}

@@ -7,23 +7,24 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { DraftVariant } from "@/lib/types";
+import { isDemoScreenshot } from "@/lib/demo-variants";
 
 const ACCEPTED_TYPES = ["image/png", "image/jpeg"];
 const ACCEPTED_EXTENSIONS = ".png,.jpg,.jpeg";
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
-const MAX_DIMENSION = 4096;
+const MAX_FILE_SIZE = 20 * 1024 * 1024;
+const MAX_DIMENSION = 16384;
 
 type UploadError =
   | "Upload a PNG or JPG image."
-  | "Image must be 10 MB or smaller."
-  | "Image dimensions must not exceed 4096 × 4096 px.";
+  | "Image must be 20 MB or smaller."
+  | "Image dimensions must not exceed 16384 × 16384 px.";
 
 function validateFile(file: File): UploadError | null {
   if (!ACCEPTED_TYPES.includes(file.type)) {
     return "Upload a PNG or JPG image.";
   }
   if (file.size > MAX_FILE_SIZE) {
-    return "Image must be 10 MB or smaller.";
+    return "Image must be 20 MB or smaller.";
   }
   return null;
 }
@@ -31,9 +32,9 @@ function validateFile(file: File): UploadError | null {
 function validateDimensions(
   width: number,
   height: number,
-): "Image dimensions must not exceed 4096 × 4096 px." | null {
+): "Image dimensions must not exceed 16384 × 16384 px." | null {
   if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
-    return "Image dimensions must not exceed 4096 × 4096 px.";
+    return "Image dimensions must not exceed 16384 × 16384 px.";
   }
   return null;
 }
@@ -62,6 +63,7 @@ export interface VariantUploadCardProps {
   canRemove: boolean;
   error?: string | undefined;
   onNameChange: (name: string) => void;
+  onPageUrlChange: (url: string) => void;
   onDescriptionChange: (description: string) => void;
   onScreenshotChange: (dataUrl: string) => void;
   onScreenshotRemove: () => void;
@@ -74,6 +76,7 @@ export function VariantUploadCard({
   canRemove,
   error: externalError,
   onNameChange,
+  onPageUrlChange,
   onDescriptionChange,
   onScreenshotChange,
   onScreenshotRemove,
@@ -186,10 +189,31 @@ export function VariantUploadCard({
         )}
       </div>
 
+      <div className="mt-4">
+        <Label htmlFor={`variant-url-${variant.id}`} className="mb-1.5 block text-sm font-medium">
+          Page URL
+        </Label>
+        <Input
+          id={`variant-url-${variant.id}`}
+          type="url"
+          value={variant.pageUrl ?? ""}
+          onChange={(e) => onPageUrlChange(e.target.value)}
+          placeholder="https://example.com/page"
+        />
+        <p className="mt-1.5 text-xs text-muted-foreground">
+          Add or replace the screenshot for this page below.
+        </p>
+      </div>
+
       {/* Upload area or preview */}
       <div className="mt-4">
         {variant.screenshotUrl ? (
           <div className="space-y-3">
+            {isDemoScreenshot(variant.screenshotUrl) && (
+              <p className="text-xs text-muted-foreground">
+                Sample mobile screenshot · replace it to use your own
+              </p>
+            )}
             <div className="overflow-hidden rounded-md border border-border bg-surface">
               <img
                 src={variant.screenshotUrl}
@@ -234,7 +258,7 @@ export function VariantUploadCard({
             <span className="text-sm font-medium text-foreground">
               {isLoading ? "Loading…" : "Drag & drop a screenshot or click to upload"}
             </span>
-            <span className="text-xs text-muted-foreground">PNG or JPG · max 10 MB</span>
+            <span className="text-xs text-muted-foreground">PNG or JPG · max 20 MB</span>
           </div>
         )}
 

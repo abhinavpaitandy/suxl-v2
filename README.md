@@ -35,3 +35,17 @@ bunx vitest run
 - `@lovable.dev/mcp-js`
 
 Imported from [abhinavpaitandy/synthetic-ux-lab](https://github.com/abhinavpaitandy/synthetic-ux-lab).
+
+## AI provider configuration
+
+The server-side provider layer uses Lovable's AI gateway when `LOVABLE_API_KEY` is available. For local development, create an ignored `.env.local` file:
+
+```env
+AI_PROVIDER=cloudflare
+CLOUDFLARE_ACCOUNT_ID=your_cloudflare_account_id
+CLOUDFLARE_API_TOKEN=your_cloudflare_api_token
+```
+
+Optionally set `CLOUDFLARE_AI_MODEL` to another compatible vision model. Start with `npm run dev:local`; the server loads `.env.local` and listens on localhost. Direct Cloudflare access is restricted to local development. Lovable's managed key takes precedence in hosted environments. Keep tokens server-side and never use the `VITE_` prefix. Lovable secrets are managed in Lovable.
+
+On the target-review step, **Analyse screenshots with AI** sends the screenshots and task details to the configured provider and returns visual observations and suggested target boxes. Review all suggestions. The simulation and its numerical results are still mock data, not measured user behaviour. For local API access, run `npm run dev:local`; this binds the server to localhost. Lovable-hosted AI requests require a signed-in user.

@@ -3,13 +3,16 @@ import { useState } from "react";
 import { ArrowLeft, ArrowRight, Plus } from "lucide-react";
 
 import { PageBody, PageHeader } from "@/components/app-shell";
+import { WizardProgress } from "@/components/experiment-stepper";
 import { Button } from "@/components/ui/button";
 import { VariantUploadCard } from "@/components/variant-upload-card";
 import { useDraft } from "@/lib/draft-store";
+import { hasVariantSource } from "@/lib/variant-source";
 import { generateMockTarget } from "@/lib/mock-targets";
+import { demoAddToBagTarget } from "@/lib/demo-variants";
 
-const TITLE = "Upload UI Variants — Synthetic UX Lab";
-const DESCRIPTION = "Add 2–3 versions of the same decision point.";
+const TITLE = "Compare Variants — Synthetic UX Lab";
+const DESCRIPTION = "Add 2–3 page URLs or screenshots to compare.";
 
 export const Route = createFileRoute("/experiments/new/variants")({
   head: () => ({
@@ -29,11 +32,9 @@ function VariantUploadPage() {
   const navigate = useNavigate();
   const { draft, addVariant, removeVariant, updateVariant, setDetectedTarget } = useDraft();
   const [showValidation, setShowValidation] = useState(false);
-  const [isAnalysing, setIsAnalysing] = useState(false);
 
   const variants = draft.variants;
-  const allHaveScreenshots = variants.every((v) => v.screenshotUrl);
-  const canContinue = variants.length >= 2 && allHaveScreenshots;
+  const canContinue = variants.length >= 2 && variants.every(hasVariantSource);
 
   function handleContinue() {
     if (!canContinue) {
@@ -41,25 +42,26 @@ function VariantUploadPage() {
       return;
     }
 
-    setIsAnalysing(true);
-    setTimeout(() => {
-      variants.forEach((variant, index) => {
-        const target = generateMockTarget(index, draft.successEvent);
-        setDetectedTarget(variant.id, target);
-      });
-      navigate({ to: "/experiments/new/targets" });
-    }, 350);
+    variants.forEach((variant, index) => {
+      if (!variant.screenshotUrl || variant.detectedTarget) return;
+      setDetectedTarget(variant.id, demoAddToBagTarget(variant.screenshotUrl, draft.successEvent) ?? generateMockTarget(index, draft.successEvent));
+    });
+    navigate({
+      to: variants.some((v) => v.screenshotUrl)
+        ? "/experiments/new/targets"
+        : "/experiments/new/simulation",
+    });
   }
 
-  const screensReady = variants.filter((v) => v.screenshotUrl).length;
+  const screensReady = variants.filter(hasVariantSource).length;
 
   return (
     <>
       <PageHeader
         eyebrow="New Experiment · Step 2 of 5"
-        title="Upload UI Variants"
+        title="Compare Variants"
         description={DESCRIPTION}
-        actions={
+        leading={
           <Button variant="outline" asChild>
             <Link to="/experiments/new">
               <ArrowLeft className="size-4" />
@@ -68,10 +70,15 @@ function VariantUploadPage() {
           </Button>
         }
       />
+      <WizardProgress currentStep={2} />
 
       <PageBody>
         <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_280px]">
           <div className="space-y-6">
+            <p className="rounded-md border border-border bg-surface px-4 py-3 text-sm text-muted-foreground">
+              Sample mobile screenshots are included for the H&M and Zara URLs. Replace them with
+              your own screenshots when needed. Results are illustrative mock data.
+            </p>
             {/* Experiment context */}
             <div className="rounded-lg border border-border bg-surface px-5 py-4">
               <dl className="grid gap-x-8 gap-y-3 sm:grid-cols-3">
@@ -93,7 +100,7 @@ function VariantUploadPage() {
                 <p className="text-sm font-medium text-destructive">
                   {variants.length < 2
                     ? "Add at least 2 variants to continue."
-                    : "Upload a screenshot for every variant to continue."}
+                    : "Provide a valid HTTP or HTTPS URL or a screenshot for each variant. Any URL entered must be valid."}
                 </p>
               </div>
             )}
@@ -106,10 +113,18 @@ function VariantUploadPage() {
                   variant={variant}
                   index={index}
                   canRemove={variants.length > 2}
+                  onPageUrlChange={(pageUrl) =>
+                    updateVariant(variant.id, {
+                      pageUrl,
+                    })
+                  }
                   onNameChange={(name) => updateVariant(variant.id, { name })}
                   onDescriptionChange={(description) => updateVariant(variant.id, { description })}
                   onScreenshotChange={(screenshotUrl) =>
-                    updateVariant(variant.id, { screenshotUrl })
+                    updateVariant(variant.id, {
+                      screenshotUrl,
+                      detectedTarget: undefined,
+                    })
                   }
                   onScreenshotRemove={() =>
                     updateVariant(variant.id, {
@@ -119,8 +134,8 @@ function VariantUploadPage() {
                   }
                   onRemoveVariant={() => removeVariant(variant.id)}
                   error={
-                    showValidation && !variant.screenshotUrl
-                      ? `Upload a screenshot for ${variant.name}.`
+                    showValidation && !hasVariantSource(variant)
+                      ? `Provide a valid URL or screenshot for ${variant.name}. Any URL entered must be valid.`
                       : undefined
                   }
                 />
@@ -143,9 +158,9 @@ function VariantUploadPage() {
                   Back to Setup
                 </Link>
               </Button>
-              <Button onClick={handleContinue} disabled={isAnalysing}>
-                {isAnalysing ? "Analysing…" : "Analyse Screens"}
-                {!isAnalysing && <ArrowRight className="size-4" />}
+              <Button onClick={handleContinue}>
+                Continue
+                <ArrowRight className="size-4" />
               </Button>
             </div>
           </div>
@@ -157,8 +172,18 @@ function VariantUploadPage() {
               <dl className="mt-4 space-y-3 text-sm">
                 <SummaryRow label="Experiment" value={draft.name || "Untitled"} />
                 <SummaryRow label="Variants" value={`${variants.length} of 3`} />
-                <SummaryRow label="Screens ready" value={`${screensReady} of ${variants.length}`} />
-                <SummaryRow label="Next" value="Review detected targets" />
+                <SummaryRow
+                  label="Candidates ready"
+                  value={`${screensReady} of ${variants.length}`}
+                />
+                <SummaryRow
+                  label="Next"
+                  value={
+                    variants.some((v) => v.screenshotUrl)
+                      ? "Review targets"
+                      : "Configure simulation"
+                  }
+                />
               </dl>
             </div>
           </aside>
