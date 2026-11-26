@@ -7,6 +7,7 @@ import { getUEyesDemoPath } from "@/lib/ueyes-demo-paths";
 import { exportHeatmap } from "@/lib/pilot-export";
 import { Download, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AccessibilityOverlay } from "@/components/accessibility-overlay";
 import { ComparisonControls, ComparisonProvider, useComparison } from "@/components/comparison-controls";
 
 type Click = { persona: string; x: number; y: number };
@@ -36,7 +37,7 @@ export function ClickHeatmapPreview(props: PreviewProps) {
 }
 
 function ClickHeatmapPreviewContent({ id, variantName, screenshotUrl, target, clicks, runs }: PreviewProps) {
-  const { showPath, showHeatmap, showPersonaPath, showUEyes, setShowUEyes, selected } = useComparison()!;
+  const { showPath, showHeatmap, showPersonaPath, showUEyes, setShowUEyes, showAccessibility, accessibilityVersion, selected } = useComparison()!;
   const [ueyesPath, setUEyesPath] = useState<{ x: number; y: number }[]>();
   const [ueyesSource, setUEyesSource] = useState<"demo" | "local">("demo");
   const [ueyesLoading, setUEyesLoading] = useState(false);
@@ -81,25 +82,26 @@ function ClickHeatmapPreviewContent({ id, variantName, screenshotUrl, target, cl
       <div id={id} className="relative w-full">
         {target ? <TargetOverlayPreview screenshotUrl={screenshotUrl} boundingBox={target} adjustMode={false} onBoxChange={() => {}} onDrawEnd={() => {}} onDrawCancel={() => {}} alt={`${variantName} screenshot with reviewed target`} /> : <img className="w-full rounded border" src={screenshotUrl} alt={`${variantName} screenshot`} />}
         <SimulatedClickHeatmap clicks={clicks} visible={showHeatmap} />
+        <AccessibilityOverlay screenshotUrl={screenshotUrl} variantName={variantName} enabled={showAccessibility} refreshVersion={accessibilityVersion} />
         {showPersonaPath && personaPath && (
-          <svg className="pointer-events-none absolute inset-0 z-20 h-full w-full" viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label={`${variantName} predicted attention path for person ${run!.run + 1}`}>
-            <polyline points={personaPath.map((p) => `${p.x * 1000},${p.y * 1000}`).join(" ")} fill="none" stroke="white" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-            <polyline points={personaPath.map((p) => `${p.x * 1000},${p.y * 1000}`).join(" ")} fill="none" stroke="#9b3612" strokeWidth="3" strokeDasharray="5 7" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-            {personaPath.map((p, i) => <circle key={i} cx={p.x * 1000} cy={p.y * 1000} r="5" fill="#9b3612" stroke="white" strokeWidth="2" vectorEffect="non-scaling-stroke" />)}
+          <svg className="pointer-events-none absolute inset-0 z-20 h-full w-full" viewBox="0 0 1000 1000" preserveAspectRatio="none" opacity="0.78" role="img" aria-label={`${variantName} predicted attention path for person ${run!.run + 1}`}>
+            <polyline points={personaPath.map((p) => `${p.x * 1000},${p.y * 1000}`).join(" ")} fill="none" stroke="white" strokeOpacity="0.55" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+            <polyline points={personaPath.map((p) => `${p.x * 1000},${p.y * 1000}`).join(" ")} fill="none" stroke="#9b3612" strokeWidth="2" strokeDasharray="5 7" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+            {personaPath.map((p, i) => <circle key={i} cx={p.x * 1000} cy={p.y * 1000} r="3.5" fill="#9b3612" stroke="white" strokeWidth="1" vectorEffect="non-scaling-stroke" />)}
           </svg>
         )}
         {showUEyes && ueyesPath && (
-          <svg className="pointer-events-none absolute inset-0 z-20 h-full w-full" viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label={`${variantName} UEyes DeepGaze++ predicted attention path`}>
-            <polyline points={ueyesPath.map((p) => `${p.x * 1000},${p.y * 1000}`).join(" ")} fill="none" stroke="white" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-            <polyline points={ueyesPath.map((p) => `${p.x * 1000},${p.y * 1000}`).join(" ")} fill="none" stroke="#8a239a" strokeWidth="3" strokeDasharray="5 7" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-            {ueyesPath.map((p, i) => <circle key={i} cx={p.x * 1000} cy={p.y * 1000} r="5" fill="#8a239a" stroke="white" strokeWidth="2" vectorEffect="non-scaling-stroke" />)}
+          <svg className="pointer-events-none absolute inset-0 z-20 h-full w-full" viewBox="0 0 1000 1000" preserveAspectRatio="none" opacity="0.78" role="img" aria-label={`${variantName} UEyes DeepGaze++ predicted attention path`}>
+            <polyline points={ueyesPath.map((p) => `${p.x * 1000},${p.y * 1000}`).join(" ")} fill="none" stroke="white" strokeOpacity="0.55" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+            <polyline points={ueyesPath.map((p) => `${p.x * 1000},${p.y * 1000}`).join(" ")} fill="none" stroke="#8a239a" strokeWidth="2" strokeDasharray="5 7" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+            {ueyesPath.map((p, i) => <circle key={i} cx={p.x * 1000} cy={p.y * 1000} r="3.5" fill="#8a239a" stroke="white" strokeWidth="1" vectorEffect="non-scaling-stroke" />)}
           </svg>
         )}
         {showPath && path.length > 0 && (
-          <svg className="pointer-events-none absolute inset-0 z-20 h-full w-full" viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label={`Illustrative path to person ${run!.run + 1}'s predicted first click`}>
-            <polyline points={path.map((p) => `${p.x * 1000},${p.y * 1000}`).join(" ")} fill="none" stroke="#fff" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-            <polyline points={path.map((p) => `${p.x * 1000},${p.y * 1000}`).join(" ")} fill="none" stroke="#0b3d91" strokeWidth="3" strokeDasharray="5 7" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-            {path.map((p, i) => <circle key={i} cx={p.x * 1000} cy={p.y * 1000} r="5" fill="#0b3d91" stroke="white" strokeWidth="2" vectorEffect="non-scaling-stroke" />)}
+          <svg className="pointer-events-none absolute inset-0 z-20 h-full w-full" viewBox="0 0 1000 1000" preserveAspectRatio="none" opacity="0.78" role="img" aria-label={`Illustrative path to person ${run!.run + 1}'s predicted first click`}>
+            <polyline points={path.map((p) => `${p.x * 1000},${p.y * 1000}`).join(" ")} fill="none" stroke="#fff" strokeOpacity="0.55" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+            <polyline points={path.map((p) => `${p.x * 1000},${p.y * 1000}`).join(" ")} fill="none" stroke="#0b3d91" strokeWidth="2" strokeDasharray="5 7" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+            {path.map((p, i) => <circle key={i} cx={p.x * 1000} cy={p.y * 1000} r="3.5" fill="#0b3d91" stroke="white" strokeWidth="1" vectorEffect="non-scaling-stroke" />)}
           </svg>
         )}
       </div>

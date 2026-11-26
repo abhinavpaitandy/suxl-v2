@@ -33,6 +33,15 @@ describe("illustrative gaze preview", () => {
     fireEvent.click(screen.getByLabelText("Show click heatmap"));
     expect(screen.getAllByTestId("heatmap").every((item) => item.getAttribute("data-visible") === "false")).toBe(true);
   });
+  it("keeps the explanations in the shared disclosure without changing layers", () => {
+    render(<ComparisonProvider><ComparisonControls runs={[]} /></ComparisonProvider>);
+    expect(screen.queryByText("Learn more")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("About these overlays"));
+    expect(screen.getByText(/hypothetical predictions, not measured gaze/i)).toBeVisible();
+    expect(screen.getByText(/intermediate stops are invented/i)).toBeVisible();
+    expect(screen.getByRole("link", { name: /Read the UEyes research/i })).toHaveAttribute("href", "https://userinterfaces.aalto.fi/ueyeschi23/");
+    expect(screen.getByLabelText("Show persona-specific predicted attention path")).not.toBeChecked();
+  });
   it("ends at the selected predicted click", () => {
     expect(illustrativePath(0.27, 0.96).at(-1)).toEqual({ x: 0.27, y: 0.96 });
   });

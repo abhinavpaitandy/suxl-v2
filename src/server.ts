@@ -70,6 +70,11 @@ export default {
         const { handlePilot } = await import("./lib/ai/pilot.server");
         return handlePilot(request);
       }
+      if (new URL(request.url).pathname === "/api/accessibility-analysis") {
+        if (request.method !== "POST") return new Response("Method not allowed", { status: 405 });
+        const { handleAccessibilityAnalysis } = await import("./lib/ai/accessibility.server");
+        return handleAccessibilityAnalysis(request);
+      }
       if (new URL(request.url).pathname === "/api/visual-analysis") {
         if (request.method !== "POST") return new Response("Method not allowed", { status: 405 });
         const { handleVisualAnalysis } = await import("./lib/ai/visual-handler.server");
