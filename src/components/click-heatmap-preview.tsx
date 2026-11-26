@@ -75,21 +75,23 @@ function ClickHeatmapPreviewContent({ id, variantName, screenshotUrl, target, cl
   }
   const sorted = [...runs].sort((a, b) => a.run - b.run);
   const run = sorted.find((item) => String(item.run) === selected);
-  const path = run?.outcome.action === "click" ? illustrativePath(run.outcome.x, run.outcome.y) : [];
-  const personaPath = run?.outcome.attentionPath;
+  const visibleRuns = selected === "all" ? sorted : run ? [run] : [];
+  const personaRuns = visibleRuns.filter((item) => item.outcome.attentionPath?.length);
+  const clickRuns = visibleRuns.filter((item) => item.outcome.action === "click");
   return (
     <>
       <div id={id} className="relative w-full">
         {target ? <TargetOverlayPreview screenshotUrl={screenshotUrl} boundingBox={target} adjustMode={false} onBoxChange={() => {}} onDrawEnd={() => {}} onDrawCancel={() => {}} alt={`${variantName} screenshot with reviewed target`} /> : <img className="w-full rounded border" src={screenshotUrl} alt={`${variantName} screenshot`} />}
         <SimulatedClickHeatmap clicks={clicks} visible={showHeatmap} />
         <AccessibilityOverlay screenshotUrl={screenshotUrl} variantName={variantName} enabled={showAccessibility} refreshVersion={accessibilityVersion} />
-        {showPersonaPath && personaPath && (
-          <svg className="pointer-events-none absolute inset-0 z-20 h-full w-full" viewBox="0 0 1000 1000" preserveAspectRatio="none" opacity="0.78" role="img" aria-label={`${variantName} predicted attention path for person ${run!.run + 1}`}>
+        {showPersonaPath && personaRuns.map((item) => {
+          const personaPath = item.outcome.attentionPath!;
+          return <svg key={`persona-${item.run}`} className="pointer-events-none absolute inset-0 z-20 h-full w-full" viewBox="0 0 1000 1000" preserveAspectRatio="none" opacity={selected === "all" ? "0.35" : "0.78"} role="img" aria-label={`${variantName} predicted attention path for person ${item.run + 1}`}>
             <polyline points={personaPath.map((p) => `${p.x * 1000},${p.y * 1000}`).join(" ")} fill="none" stroke="white" strokeOpacity="0.55" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
             <polyline points={personaPath.map((p) => `${p.x * 1000},${p.y * 1000}`).join(" ")} fill="none" stroke="#9b3612" strokeWidth="2" strokeDasharray="5 7" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
             {personaPath.map((p, i) => <circle key={i} cx={p.x * 1000} cy={p.y * 1000} r="3.5" fill="#9b3612" stroke="white" strokeWidth="1" vectorEffect="non-scaling-stroke" />)}
-          </svg>
-        )}
+          </svg>;
+        })}
         {showUEyes && ueyesPath && (
           <svg className="pointer-events-none absolute inset-0 z-20 h-full w-full" viewBox="0 0 1000 1000" preserveAspectRatio="none" opacity="0.78" role="img" aria-label={`${variantName} UEyes DeepGaze++ predicted attention path`}>
             <polyline points={ueyesPath.map((p) => `${p.x * 1000},${p.y * 1000}`).join(" ")} fill="none" stroke="white" strokeOpacity="0.55" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
@@ -97,17 +99,20 @@ function ClickHeatmapPreviewContent({ id, variantName, screenshotUrl, target, cl
             {ueyesPath.map((p, i) => <circle key={i} cx={p.x * 1000} cy={p.y * 1000} r="3.5" fill="#8a239a" stroke="white" strokeWidth="1" vectorEffect="non-scaling-stroke" />)}
           </svg>
         )}
-        {showPath && path.length > 0 && (
-          <svg className="pointer-events-none absolute inset-0 z-20 h-full w-full" viewBox="0 0 1000 1000" preserveAspectRatio="none" opacity="0.78" role="img" aria-label={`Illustrative path to person ${run!.run + 1}'s predicted first click`}>
+        {showPath && clickRuns.map((item) => {
+          if (item.outcome.action !== "click") return null;
+          const path = illustrativePath(item.outcome.x, item.outcome.y);
+          return <svg key={`illustrative-${item.run}`} className="pointer-events-none absolute inset-0 z-20 h-full w-full" viewBox="0 0 1000 1000" preserveAspectRatio="none" opacity={selected === "all" ? "0.35" : "0.78"} role="img" aria-label={`${variantName} illustrative path to person ${item.run + 1}'s predicted first click`}>
             <polyline points={path.map((p) => `${p.x * 1000},${p.y * 1000}`).join(" ")} fill="none" stroke="#fff" strokeOpacity="0.55" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
             <polyline points={path.map((p) => `${p.x * 1000},${p.y * 1000}`).join(" ")} fill="none" stroke="#0b3d91" strokeWidth="2" strokeDasharray="5 7" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
             {path.map((p, i) => <circle key={i} cx={p.x * 1000} cy={p.y * 1000} r="3.5" fill="#0b3d91" stroke="white" strokeWidth="1" vectorEffect="non-scaling-stroke" />)}
-          </svg>
-        )}
+          </svg>;
+        })}
       </div>
       <section className="mt-4 rounded-lg border border-border bg-muted/20 p-4" aria-label={`${variantName} results`}>
         <ClickDistributionSummary clicks={clicks} target={target} />
-        {showPersonaPath && !personaPath && <p className="mt-2 text-xs text-muted-foreground">No predicted attention path was saved for this person in this variant.</p>}
+        {showPersonaPath && personaRuns.length === 0 && <p className="mt-2 text-xs text-muted-foreground">No predicted attention path was saved for the selected people in this variant.</p>}
+        {selected === "all" && showPersonaPath && personaRuns.length > 0 && <p className="mt-2 text-xs text-muted-foreground">Showing {personaRuns.length} of {visibleRuns.length} saved persona paths together.</p>}
         {showPath && run?.outcome.action === "no_action" && <p className="mt-2 text-xs text-muted-foreground">No illustrative path is shown because this person did not produce a click.</p>}
         {!ueyesPath && <div className="mt-3 flex flex-wrap items-center justify-between gap-2"><span className="text-xs text-muted-foreground">UEyes path unavailable for this variant.</span><Button type="button" aria-label="Generate UEyes attention path" size="sm" variant="outline" disabled={ueyesLoading} onClick={() => void generateUEyes()}>{ueyesLoading && <LoaderCircle className="mr-1 size-3 animate-spin" />}{ueyesLoading ? "Generating…" : "Generate path"}</Button></div>}
         {ueyesError && <p role="alert" className="mt-2 text-xs text-destructive">{ueyesError}</p>}

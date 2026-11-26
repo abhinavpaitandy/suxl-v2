@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { webcrypto } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ClickHeatmapPreview, illustrativePath } from "@/components/click-heatmap-preview";
-import { ComparisonControls, ComparisonProvider } from "@/components/comparison-controls";
+import { ComparisonControls, ComparisonProvider, useComparison } from "@/components/comparison-controls";
 
 vi.mock("@/components/simulated-click-heatmap", () => ({ SimulatedClickHeatmap: ({ visible }: { visible: boolean }) => <canvas data-testid="heatmap" data-visible={String(visible)} />, ClickDistributionSummary: () => null }));
 afterEach(() => vi.unstubAllGlobals());
@@ -16,10 +16,13 @@ describe("illustrative gaze preview", () => {
       { variantId: "v-a", run: 1, profile: "Two", outcome: { action: "no_action", reason: "Unsure", attentionPath: second } },
     ]} />);
     fireEvent.click(screen.getByLabelText("Show persona-specific predicted attention path"));
+    expect(screen.getByLabelText("Person for comparison")).toHaveValue("all");
+    expect(screen.getAllByRole("img", { name: /predicted attention path for person/i })).toHaveLength(2);
     const firstPath = screen.getByRole("img", { name: /predicted attention path for person 1/i });
     expect(firstPath.querySelector("polyline")?.getAttribute("points")).toBe("200,300 500,800");
     fireEvent.change(screen.getByLabelText("Person for comparison"), { target: { value: "1" } });
     expect(screen.getByRole("img", { name: /predicted attention path for person 2/i }).querySelector("polyline")?.getAttribute("points")).toBe("800,200 100,700");
+    expect(screen.queryByRole("img", { name: /predicted attention path for person 1/i })).not.toBeInTheDocument();
     expect(screen.getByTestId("heatmap")).toBeInTheDocument();
     expect(screen.getByLabelText("Show illustrative gaze path")).toBeInTheDocument();
   });
@@ -41,6 +44,17 @@ describe("illustrative gaze preview", () => {
     expect(screen.getByText(/intermediate stops are invented/i)).toBeVisible();
     expect(screen.getByRole("link", { name: /Read the UEyes research/i })).toHaveAttribute("href", "https://userinterfaces.aalto.fi/ueyeschi23/");
     expect(screen.getByLabelText("Show persona-specific predicted attention path")).not.toBeChecked();
+  });
+  it("refreshes accessibility analysis without changing the overlay toggle", () => {
+    function Version() { return <span>Refresh count: {useComparison()!.accessibilityVersion}</span>; }
+    render(<ComparisonProvider><ComparisonControls runs={[]} /><Version /></ComparisonProvider>);
+    const refresh = screen.getByRole("button", { name: "Run fresh accessibility analysis" });
+    expect(refresh).toBeDisabled();
+    fireEvent.click(screen.getByLabelText("Show accessibility suggestions"));
+    expect(refresh).toBeEnabled();
+    fireEvent.click(refresh);
+    expect(screen.getByText("Refresh count: 1")).toBeInTheDocument();
+    expect(screen.getByLabelText("Show accessibility suggestions")).toBeChecked();
   });
   it("ends at the selected predicted click", () => {
     expect(illustrativePath(0.27, 0.96).at(-1)).toEqual({ x: 0.27, y: 0.96 });
