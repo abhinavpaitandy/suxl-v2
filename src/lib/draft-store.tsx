@@ -211,6 +211,7 @@ interface DraftContextValue {
   setBehaviourDiversity: (diversity: BehaviourDiversity) => void;
   setDevice: (device: DeviceType) => void;
   resetDraft: () => void;
+  restoreSavedPilot: (saved: ExperimentDraft) => void;
 }
 
 const DraftContext = createContext<DraftContextValue | null>(null);
@@ -316,6 +317,14 @@ export function DraftProvider({ children }: { children: ReactNode }) {
     [],
   );
   const resetDraft = useCallback(() => dispatch({ type: "RESET" }), []);
+  const restoreSavedPilot = useCallback((saved: ExperimentDraft) => {
+    if (!isCompletedDemo(saved)) throw new Error("The saved pilot is incomplete.");
+    // Preserve the existing draft before replacing it; do not proceed on quota errors.
+    const key = `suxl-draft-backup-v1:${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    localStorage.setItem(key, JSON.stringify({ savedAt: new Date().toISOString(), draft }));
+    sessionStorage.setItem("suxl-experiment-draft-v1", JSON.stringify(saved));
+    dispatch({ type: "RESTORE", draft: saved });
+  }, [draft]);
 
   const value = useMemo(
     () => ({
@@ -336,6 +345,7 @@ export function DraftProvider({ children }: { children: ReactNode }) {
       setBehaviourDiversity,
       setDevice,
       resetDraft,
+      restoreSavedPilot,
     }),
     [
       draft,
@@ -355,6 +365,7 @@ export function DraftProvider({ children }: { children: ReactNode }) {
       setBehaviourDiversity,
       setDevice,
       resetDraft,
+      restoreSavedPilot,
     ],
   );
 

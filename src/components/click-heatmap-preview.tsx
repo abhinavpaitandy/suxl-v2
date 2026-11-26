@@ -2,8 +2,12 @@ import { useEffect, useState } from "react";
 import type { PilotRun } from "@/lib/ai/pilot-client";
 import type { BoundingBox } from "@/lib/types";
 import { TargetOverlayPreview } from "@/components/target-overlay-preview";
-import { SimulatedClickHeatmap } from "@/components/simulated-click-heatmap";
+import { ClickDistributionSummary, SimulatedClickHeatmap } from "@/components/simulated-click-heatmap";
 import { getUEyesDemoPath } from "@/lib/ueyes-demo-paths";
+import { exportHeatmap } from "@/lib/pilot-export";
+import { Download, LoaderCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ComparisonControls, ComparisonProvider, useComparison } from "@/components/comparison-controls";
 
 type Click = { persona: string; x: number; y: number };
 
@@ -16,17 +20,23 @@ export function illustrativePath(x: number, y: number) {
   })), { x, y }];
 }
 
-export function ClickHeatmapPreview({ id, variantName, screenshotUrl, target, clicks, runs }: {
+type PreviewProps = {
   id: string;
   variantName: string;
   screenshotUrl: string;
   target?: BoundingBox | undefined;
   clicks: Click[];
   runs: PilotRun[];
-}) {
-  const [showPath, setShowPath] = useState(false);
-  const [showPersonaPath, setShowPersonaPath] = useState(false);
-  const [showUEyes, setShowUEyes] = useState(false);
+};
+
+export function ClickHeatmapPreview(props: PreviewProps) {
+  const comparison = useComparison();
+  if (!comparison) return <ComparisonProvider><ComparisonControls runs={props.runs} /><ClickHeatmapPreviewContent {...props} /></ComparisonProvider>;
+  return <ClickHeatmapPreviewContent {...props} />;
+}
+
+function ClickHeatmapPreviewContent({ id, variantName, screenshotUrl, target, clicks, runs }: PreviewProps) {
+  const { showPath, showHeatmap, showPersonaPath, showUEyes, setShowUEyes, selected } = useComparison()!;
   const [ueyesPath, setUEyesPath] = useState<{ x: number; y: number }[]>();
   const [ueyesSource, setUEyesSource] = useState<"demo" | "local">("demo");
   const [ueyesLoading, setUEyesLoading] = useState(false);
@@ -34,7 +44,6 @@ export function ClickHeatmapPreview({ id, variantName, screenshotUrl, target, cl
   useEffect(() => {
     let active = true;
     setUEyesPath(undefined);
-    setShowUEyes(false);
     setUEyesSource("demo");
     setUEyesError("");
     void getUEyesDemoPath(screenshotUrl).then((points) => { if (active) setUEyesPath(points); }).catch(() => { if (active) setUEyesPath(undefined); });
@@ -64,7 +73,6 @@ export function ClickHeatmapPreview({ id, variantName, screenshotUrl, target, cl
     finally { setUEyesLoading(false); }
   }
   const sorted = [...runs].sort((a, b) => a.run - b.run);
-  const [selected, setSelected] = useState<string>(() => String(sorted[0]?.run ?? ""));
   const run = sorted.find((item) => String(item.run) === selected);
   const path = run?.outcome.action === "click" ? illustrativePath(run.outcome.x, run.outcome.y) : [];
   const personaPath = run?.outcome.attentionPath;
@@ -72,7 +80,7 @@ export function ClickHeatmapPreview({ id, variantName, screenshotUrl, target, cl
     <>
       <div id={id} className="relative w-full">
         {target ? <TargetOverlayPreview screenshotUrl={screenshotUrl} boundingBox={target} adjustMode={false} onBoxChange={() => {}} onDrawEnd={() => {}} onDrawCancel={() => {}} alt={`${variantName} screenshot with reviewed target`} /> : <img className="w-full rounded border" src={screenshotUrl} alt={`${variantName} screenshot`} />}
-        <SimulatedClickHeatmap clicks={clicks} />
+        <SimulatedClickHeatmap clicks={clicks} visible={showHeatmap} />
         {showPersonaPath && personaPath && (
           <svg className="pointer-events-none absolute inset-0 z-20 h-full w-full" viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label={`${variantName} predicted attention path for person ${run!.run + 1}`}>
             <polyline points={personaPath.map((p) => `${p.x * 1000},${p.y * 1000}`).join(" ")} fill="none" stroke="white" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
@@ -95,27 +103,15 @@ export function ClickHeatmapPreview({ id, variantName, screenshotUrl, target, cl
           </svg>
         )}
       </div>
-      {sorted.length > 0 && <div className="mt-3 space-y-2 text-sm">
-        <label className="flex items-center gap-2"><input type="checkbox" checked={showPersonaPath} onChange={(event) => setShowPersonaPath(event.target.checked)} /> Show persona-specific predicted attention path</label>
-        {showPersonaPath && <>
-          <label className="flex flex-wrap items-center gap-2">Person <select className="rounded border border-input bg-background px-2 py-1" value={selected} onChange={(event) => setSelected(event.target.value)} aria-label={`${variantName} person for predicted attention path`}>{sorted.map((item) => <option key={item.run} value={String(item.run)}>Person {item.run + 1}{item.outcome.action === "no_action" ? " (no click)" : ""}</option>)}</select></label>
-          <p className="text-xs text-muted-foreground">Ordered locations predicted from this person's profile and the screenshot. These are hypothetical AI predictions, not measured gaze. Different people can receive similar predictions.</p>
-          {!personaPath && <p className="text-xs text-muted-foreground">No predicted attention path was saved for this person. Earlier pilot results did not include attention paths.</p>}
-        </>}
-      </div>}
-      <div className="mt-3 space-y-2 text-sm">
-        {ueyesPath ? <label className="flex items-center gap-2"><input type="checkbox" checked={showUEyes} onChange={(event) => setShowUEyes(event.target.checked)} /> Show UEyes predicted attention path</label> : <button type="button" className="rounded border border-input bg-background px-3 py-2 disabled:opacity-50" disabled={ueyesLoading} onClick={() => void generateUEyes()}>{ueyesLoading ? "Generating UEyes path…" : "Generate UEyes attention path"}</button>}
-        {ueyesError && <p role="alert" className="text-xs text-destructive">{ueyesError}</p>}
-        {showUEyes && <p className="text-xs text-muted-foreground">DeepGaze++ free-viewing prediction for this screenshot: the first point is a centre seed, followed by three predicted fixations. This is not measured eye tracking or a prediction for a particular person or task. {ueyesSource === "demo" ? "The path was precomputed for this demo image." : "The path was generated locally for this image."}</p>}
-      </div>
-      {sorted.length > 0 && <div className="mt-3 space-y-2 text-sm">
-        <label className="flex items-center gap-2"><input type="checkbox" checked={showPath} onChange={(event) => setShowPath(event.target.checked)} /> Show illustrative gaze path</label>
-        {showPath && <>
-          <label className="flex flex-wrap items-center gap-2">Person <select className="rounded border border-input bg-background px-2 py-1" value={selected} onChange={(event) => setSelected(event.target.value)} aria-label={`${variantName} person for illustrative gaze path`}>{sorted.map((item) => <option key={item.run} value={String(item.run)}>Person {item.run + 1}{item.outcome.action === "no_action" ? " (no click)" : ""}</option>)}</select></label>
-          <p className="text-xs text-muted-foreground">Illustration only: the starting point and intermediate stops are invented. Only the endpoint is the selected person’s predicted first click. This is not eye tracking or an AI-predicted gaze path.</p>
-          {run?.outcome.action === "no_action" && <p className="text-xs text-muted-foreground">No path is shown because this person did not produce a click.</p>}
-        </>}
-      </div>}
+      <section className="mt-4 rounded-lg border border-border bg-muted/20 p-4" aria-label={`${variantName} results`}>
+        <ClickDistributionSummary clicks={clicks} target={target} />
+        {showPersonaPath && !personaPath && <p className="mt-2 text-xs text-muted-foreground">No predicted attention path was saved for this person in this variant.</p>}
+        {showPath && run?.outcome.action === "no_action" && <p className="mt-2 text-xs text-muted-foreground">No illustrative path is shown because this person did not produce a click.</p>}
+        {!ueyesPath && <div className="mt-3 flex flex-wrap items-center justify-between gap-2"><span className="text-xs text-muted-foreground">UEyes path unavailable for this variant.</span><Button type="button" aria-label="Generate UEyes attention path" size="sm" variant="outline" disabled={ueyesLoading} onClick={() => void generateUEyes()}>{ueyesLoading && <LoaderCircle className="mr-1 size-3 animate-spin" />}{ueyesLoading ? "Generating…" : "Generate path"}</Button></div>}
+        {ueyesError && <p role="alert" className="mt-2 text-xs text-destructive">{ueyesError}</p>}
+        {showUEyes && ueyesPath && <p className="mt-2 text-xs text-muted-foreground">UEyes path {ueyesSource === "demo" ? "was precomputed for this demo image" : "was generated locally for this image"}.</p>}
+        <Button type="button" variant="outline" className="mt-4 w-full justify-center" onClick={() => void exportHeatmap(id, `${id}-heatmap.png`).catch((error) => window.alert(error instanceof Error ? error.message : "Could not export heatmap."))}><Download className="mr-2 size-4" /> Download heatmap (.png)</Button>
+      </section>
     </>
   );
 }

@@ -23,9 +23,9 @@ import {
 
 import { AppShell, PageBody, PageHeader } from "@/components/app-shell";
 import { ExperimentStepper } from "@/components/experiment-stepper";
-import { ClickDistributionSummary } from "@/components/simulated-click-heatmap";
 import { TargetOverlayPreview } from "@/components/target-overlay-preview";
 import { ClickHeatmapPreview } from "@/components/click-heatmap-preview";
+import { ComparisonControls, ComparisonProvider } from "@/components/comparison-controls";
 import { EvidenceBadge, Pill, StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,7 +50,7 @@ import { useDraft } from "@/lib/draft-store";
 import { DEMO_VARIANTS } from "@/lib/demo-variants";
 import demoResult from "@/lib/ai/demo-result.json";
 import { cn } from "@/lib/utils";
-import { exportPeople, exportHeatmap, exportPilotArchive } from "@/lib/pilot-export";
+import { exportPeople, exportPilotArchive } from "@/lib/pilot-export";
 import { PilotVerification } from "@/components/pilot-verification";
 import { EXAMPLE_UPDATED_EVENT, isCompletedDemo, latestExampleBackup, normalizeCompletedDemo, saveCompletedExample, SAVED_EXAMPLE_KEY, type SavedExample } from "@/lib/saved-example";
 
@@ -306,6 +306,8 @@ function ResultsPage() {
               <div className="flex flex-wrap gap-3"><Button variant="outline" onClick={() => void exportPeople(savedExample.draft.pilotRuns!).catch(() => window.alert("Could not export the people spreadsheet."))}>Download people (.xlsx)</Button><Button variant="outline" onClick={() => exportPilotArchive(savedExample)}>Download pilot archive (.json)</Button>{latestExampleBackup() && <Button variant="outline" onClick={() => { const backup = latestExampleBackup(); if (backup) exportPilotArchive(backup); }}>Download previous example (.json)</Button>}</div>
               <section className="rounded-lg border bg-card p-5"><h2 className="font-semibold">Pilot results</h2><ul className="mt-4 space-y-3">{savedExample.draft.visualObservations!.map((item, index) => <li className="text-sm" key={index}><strong>{item.title}:</strong> {item.detail}</li>)}</ul></section>
               <section className="rounded-lg border bg-card p-5"><h2 className="font-semibold">Original visual comparison</h2><p className="mt-2 text-sm text-muted-foreground">These observations are from the earlier screenshot analysis.</p><ul className="mt-4 space-y-3">{demoResult.observations.map((item) => <li className="text-sm" key={item.title}><strong>{item.title}:</strong> {item.detail}</li>)}</ul></section>
+              <ComparisonProvider>
+              <ComparisonControls runs={savedExample.draft.pilotRuns!} />
               <div className="grid gap-6 md:grid-cols-2">{savedExample.draft.variants.map((variant) => {
                 const clicks = savedExample.draft.simulatedClicks!.filter((item) => item.id === variant.id);
                 const runs = savedExample.draft.pilotRuns!.filter((item) => item.variantId === variant.id).sort((a, b) => a.run - b.run);
@@ -314,11 +316,10 @@ function ResultsPage() {
                   <a className="text-sm text-primary underline break-all" href={variant.pageUrl} target="_blank" rel="noreferrer">{variant.pageUrl}</a>
                   <p className="my-3 text-sm">Reviewed target: {variant.detectedTarget?.label}</p>
                   <ClickHeatmapPreview id={`saved-example-${variant.id}`} variantName={variant.name} screenshotUrl={variant.screenshotUrl!} target={variant.detectedTarget!.boundingBox} clicks={clicks} runs={runs} />
-                  <ClickDistributionSummary clicks={clicks} target={variant.detectedTarget?.boundingBox} />
-                  <Button variant="outline" className="mt-3" onClick={() => void exportHeatmap(`saved-example-${variant.id}`, `${variant.id}-heatmap.png`).catch((error) => window.alert(error instanceof Error ? error.message : "Could not export heatmap."))}>Download heatmap (.png)</Button>
                   <details className="mt-4 text-xs text-muted-foreground"><summary className="cursor-pointer font-medium">View individual pilot runs</summary><ol className="mt-2 max-h-64 space-y-2 overflow-auto">{runs.map((run) => <li key={run.run}><strong>Person {run.run + 1}</strong> · {run.profile} · {run.outcome.action === "click" ? `First click (${Math.round(run.outcome.x * 100)}%, ${Math.round(run.outcome.y * 100)}%)` : "No action"} · {run.outcome.reason}</li>)}</ol></details>
                 </section>;
               })}</div>
+              </ComparisonProvider>
             </div>
           ) : <>
           <p className="mb-6 text-sm text-muted-foreground">
@@ -444,6 +445,8 @@ function ResultsPage() {
                   ))}
                 </ul>
               </section>
+              <ComparisonProvider>
+              <ComparisonControls runs={draft.pilotRuns ?? []} />
               <div className="grid gap-6 md:grid-cols-2">
                 {draft.variants.map((variant) => (
                   <section key={variant.id} className="rounded-lg border bg-card p-5">
@@ -466,11 +469,6 @@ function ResultsPage() {
                     {variant.screenshotUrl && (
                       <ClickHeatmapPreview id={`pilot-heatmap-${variant.id}`} variantName={variant.name} screenshotUrl={variant.screenshotUrl} target={variant.detectedTarget?.boundingBox} clicks={(draft.simulatedClicks ?? []).filter((c) => c.id === variant.id)} runs={(draft.pilotRuns ?? []).filter((run) => run.variantId === variant.id)} />
                     )}
-                    <ClickDistributionSummary
-                      clicks={(draft.simulatedClicks ?? []).filter((c) => c.id === variant.id)}
-                      target={variant.detectedTarget?.boundingBox}
-                    />
-                    <Button variant="outline" className="mt-3" onClick={() => void exportHeatmap(`pilot-heatmap-${variant.id}`, `${variant.id}-heatmap.png`).catch((error) => window.alert(error instanceof Error ? error.message : "Could not export heatmap."))}>Download heatmap (.png)</Button>
                     {draft.pilotRuns && (
                       <details className="mt-4 text-xs text-muted-foreground">
                         <summary className="cursor-pointer font-medium">
@@ -495,6 +493,7 @@ function ResultsPage() {
                   </section>
                 ))}
               </div>
+              </ComparisonProvider>
             </div>
           )}
         </PageBody>

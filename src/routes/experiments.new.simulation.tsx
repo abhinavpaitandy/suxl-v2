@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Sparkles, LoaderCircle } from "lucide-react";
 import { ThinkingOrb } from "thinking-orbs";
 import { PageBody, PageHeader } from "@/components/app-shell";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useDraft } from "@/lib/draft-store";
 import { generatePilotPeople, runScreenshotPilot, type PilotTraceEvent } from "@/lib/ai/pilot-client";
 import { isVariantReady } from "@/lib/variant-source";
-import { saveCompletedExample } from "@/lib/saved-example";
+import { saveCompletedExample, SAVED_EXAMPLE_KEY, type SavedExample } from "@/lib/saved-example";
 
 export const Route = createFileRoute("/experiments/new/simulation")({
   head: () => ({ meta: [{ title: "Review and analyse — Synthetic UX Lab" }] }),
@@ -29,7 +29,7 @@ function TraceViewer({ trace }: { trace: Array<{ time: string; message: string }
 }
 
 function AnalysisSetupPage() {
-  const { draft, setVisualObservations, setSimulatedClicks, setPilotRuns, clearAnalysisResults } =
+  const { draft, setVisualObservations, setSimulatedClicks, setPilotRuns, clearAnalysisResults, restoreSavedPilot } =
     useDraft();
   const animationRef = useRef<HTMLDivElement>(null);
   const controllerRef = useRef<AbortController | null>(null);
@@ -37,6 +37,10 @@ function AnalysisSetupPage() {
   const [activeStage, setActiveStage] = useState<"people" | "prototype">("people");
   const [tab, setTab] = useState<"people" | "prototype">("people");
   const [complete, setComplete] = useState(false);
+  const [backupKey, setBackupKey] = useState<string>();
+  useEffect(() => {
+    try { setBackupKey(Object.keys(localStorage).filter((key) => key.startsWith("suxl-draft-backup-v1:")).sort().at(-1)); } catch { /* Browser storage may be unavailable. */ }
+  }, []);
   const pilotSize = 10;
   const [people, setPeople] = useState<string[]>([]);
   const [cohortKey, setCohortKey] = useState("");
@@ -55,6 +59,16 @@ function AnalysisSetupPage() {
     draft.variants.length >= 2 &&
     draft.variants.every((v) => v.screenshotUrl && isVariantReady(v)),
   );
+
+  function restorePilot() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(SAVED_EXAMPLE_KEY) || "null") as SavedExample | null;
+      if (!saved?.draft) throw new Error("No saved example pilot was found.");
+      restoreSavedPilot(saved.draft);
+      setBackupKey(Object.keys(localStorage).filter((key) => key.startsWith("suxl-draft-backup-v1:")).sort().at(-1));
+      setError(null); setComplete(true); setActiveStage("prototype"); setTab("prototype");
+    } catch (e) { setError(e instanceof Error ? e.message : "Could not restore the saved pilot."); }
+  }
 
   function recordTrace(event: PilotTraceEvent) {
     setTrace((entries) => [...entries, { time: new Date().toLocaleTimeString(), message: event.message }]);
@@ -155,6 +169,14 @@ function AnalysisSetupPage() {
       <PageBody>
         <div className="max-w-3xl space-y-6">
           <div ref={animationRef} />
+          {backupKey && <Button type="button" variant="outline" onClick={() => {
+            const backup = localStorage.getItem(backupKey);
+            if (!backup) { setError("The previous demo draft backup is unavailable."); return; }
+            const url = URL.createObjectURL(new Blob([backup], { type: "application/json" }));
+            const link = document.createElement("a"); link.href = url; link.download = "previous-demo-draft.json"; link.click();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+          }}>Download previous demo draft (.json)</Button>}
+          {!draft.pilotRuns?.length && !running && <div className="rounded-lg border bg-card p-4"><p className="text-sm text-muted-foreground">Restore the saved example pilot to this demo. The current draft is backed up in browser storage first.</p><Button type="button" variant="outline" className="mt-3" onClick={restorePilot}>Restore saved pilot to demo</Button></div>}
           <div role="tablist" aria-label="Simulation stages" className="flex gap-2 border-b border-border">
             <button role="tab" aria-selected={tab === "people"} onClick={() => setTab("people")} className={`px-4 py-3 ${tab === "people" ? "border-b-2 border-primary font-semibold" : "text-muted-foreground"}`}>1. People</button>
             <button role="tab" aria-selected={tab === "prototype"} onClick={() => setTab("prototype")} className={`px-4 py-3 ${tab === "prototype" ? "border-b-2 border-primary font-semibold" : "text-muted-foreground"}`}>2. Prototype</button>

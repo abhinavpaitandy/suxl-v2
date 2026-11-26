@@ -5,9 +5,11 @@ type Click = { persona: string; x: number; y: number };
 
 export function SimulatedClickHeatmap({
   clicks,
+  visible = true,
 }: {
   clicks: Click[];
   target?: BoundingBox | undefined;
+  visible?: boolean;
 }) {
   const host = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -45,7 +47,7 @@ export function SimulatedClickHeatmap({
   return (
     <canvas
       ref={host}
-      className="pointer-events-none absolute inset-0 z-10 h-full w-full"
+      className={`pointer-events-none absolute inset-0 z-10 h-full w-full transition-opacity ${visible ? "opacity-100" : "opacity-0"}`}
       aria-hidden="true"
     />
   );
